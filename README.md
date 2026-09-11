@@ -23,22 +23,31 @@ logic wired directly into `Activity` classes. This project's design choices
 ## Flagship engineering feature: an idempotent, tamper-evident transaction ledger
 
 `app/src/main/java/com/skillswap/app/ledger/` is a standalone, Android/Firebase-free
-Java module — an in-memory, thread-safe, idempotent transaction ledger with
-HMAC-based integrity verification. It exists to demonstrate, with 65 passing tests
-(including a deterministic 800-transaction concurrency stress test verified over 30
-consecutive runs with zero flakiness), a precise answer to: **what happens if two
-requests hit this service at exactly the same time?**
+Java module — a thread-safe, idempotent transaction ledger with HMAC-based integrity
+verification, available both in-memory and backed by a real, migrated SQL schema. It
+exists to demonstrate, with 140 passing tests (including two deterministic
+concurrency stress tests — one in-memory, one against a real database — each
+verified over 30 consecutive runs with zero flakiness), a precise answer to: **what
+happens if two requests hit this service at exactly the same time?**
 
-- Duplicate/concurrent-duplicate request detection via idempotency keys
-  (`ConcurrentHashMap#computeIfAbsent`'s at-most-once-per-key guarantee)
-- Atomic updates and lost-update prevention (a single locked critical section for
-  balance checks + hash-chain append)
+- Duplicate/concurrent-duplicate request detection via idempotency keys — enforced
+  in Java (`ConcurrentHashMap#computeIfAbsent`'s at-most-once-per-key guarantee) AND,
+  independently, by a database `UNIQUE` constraint (`ledger/sql/`), closing the
+  multi-process gap the in-memory version alone can't
+- Atomic updates and lost-update prevention (a single locked critical section
+  in-memory; an atomic guarded `UPDATE ... WHERE balance >= ?` plus a JDBC
+  transaction at the database layer)
 - A tamper-evident HMAC-SHA256 hash chain, with constant-time comparison and
   length-prefixed canonical encoding
+- A normalized SQL schema (PostgreSQL-compatible DDL, tested against H2) with
+  primary/foreign keys, `UNIQUE`/`NOT NULL`/`CHECK` constraints, and indexes matched
+  to real access patterns — every constraint proven by a test that deliberately
+  tries to violate it, including by bypassing the Java layer entirely with raw SQL
 - An honest, scoped threat model — explicitly **not** claiming PCI DSS compliance,
   "banking-grade" security, or any regulatory certification
 
 Full design writeup: [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_IDEMPOTENCY.md).
+Database design: [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md).
 Threat model: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 ## Tech stack

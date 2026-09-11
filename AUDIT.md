@@ -8,28 +8,84 @@ traffic, no CI history, and no external users. Where a score depends on things
 this sandbox cannot execute (a real Android/Gradle build), that limitation is
 stated explicitly rather than assumed away.
 
-This audit covers three passes: **Pass 1** (tests, CI, recruiter-facing docs
+This audit covers four passes: **Pass 1** (tests, CI, recruiter-facing docs
 — no production code touched), **Pass 2** (domain-model hardening: enums,
 validation, exception hierarchy, equals/hashCode, encapsulation — see
-`docs/ENGINEERING_DECISIONS.md`), and **Pass 3** (a standalone flagship
+`docs/ENGINEERING_DECISIONS.md`), **Pass 3** (a standalone flagship
 integrity/idempotency/concurrency module, `ledger/` — see
-`docs/INTEGRITY_AND_IDEMPOTENCY.md` and `docs/THREAT_MODEL.md`). Scores below
-are **original → Pass 1 → Pass 2 → Pass 3**.
+`docs/INTEGRITY_AND_IDEMPOTENCY.md` and `docs/THREAT_MODEL.md`), and **Pass 4**
+(a real SQL persistence layer for that same module, `ledger/sql/` — see
+`docs/DATABASE_DESIGN.md`). Scores below are
+**original → Pass 1 → Pass 2 → Pass 3 → Pass 4**.
 
-| # | Category | Original | Pass 1 | Pass 2 | Pass 3 | ROI of Pass 3 |
-|---|---|---|---|---|---|---|
-| 1 | Java engineering quality | 7 | 7 | 8 | 8 | — (unchanged this pass) |
-| 2 | Object-oriented design | 7 | 7 | 8 | 8 | — (unchanged this pass) |
-| 3 | Data structures / algorithms | 6 | 7 | 7 | 8 | HIGH (hash-chained log, canonical byte encoding) |
-| 4 | Reliability | 6 | 6 | 7 | 8 | HIGH (atomic commit-or-nothing, proven under contention) |
-| 5 | Testing | 1 | 6 | 7 | 9 | **HIGH** (120 tests now, up from 55; a real, non-flaky concurrency stress test) |
-| 6 | Concurrency correctness | 5 | 5 | 6 | 9 | **HIGH** (per-key + global-lock model, proven with a deterministic 800-tx stress test, 30/30 clean runs) |
-| 7 | Security awareness | 7 | 7 | 7 | 8 | HIGH (HMAC integrity, constant-time comparison, a real threat model with explicit non-claims) |
-| 8 | SQL / database engineering | 1 | 1 | 1 | 1 | not applicable (unchanged — see §8, original) |
-| 9 | SDLC / CI | 2 | 6 | 6 | 6 | — (unchanged this pass) |
-| 10 | Documentation | 6 | 9 | 9 | 9 | — (already 9; `INTEGRITY_AND_IDEMPOTENCY.md`/`THREAT_MODEL.md` added, see below) |
-| 11 | Recruiter readability | 3 | 8 | 8 | 8 | — (unchanged this pass) |
-| 12 | Interview discussability | 6 | 8 | 9 | 10 | **HIGH** (a precise, code-backed answer to "what happens if two requests hit this at the same time," with an honest threat model) |
+| # | Category | Original | Pass 1 | Pass 2 | Pass 3 | Pass 4 | ROI of Pass 4 |
+|---|---|---|---|---|---|---|---|
+| 1 | Java engineering quality | 7 | 7 | 8 | 8 | 8 | — (unchanged this pass) |
+| 2 | Object-oriented design | 7 | 7 | 8 | 8 | 9 | HIGH (`LedgerEntryFactory` extraction removed real duplication between the in-memory and SQL paths) |
+| 3 | Data structures / algorithms | 6 | 7 | 7 | 8 | 8 | — (unchanged this pass) |
+| 4 | Reliability | 6 | 6 | 7 | 8 | 9 | HIGH (a real, caught-in-development timestamp-precision bug fixed at the root, plus DB-transaction atomicity proven with rollback tests) |
+| 5 | Testing | 1 | 6 | 7 | 9 | 9 | — (140 tests now, up from 120; still 9, since the *kind* of rigor was already at 9) |
+| 6 | Concurrency correctness | 5 | 5 | 6 | 9 | 9 | — (unchanged; the SQL layer's concurrency guarantee comes from the database itself, proven by a second deterministic stress test, but doesn't raise the ceiling this category was already at) |
+| 7 | Security awareness | 7 | 7 | 7 | 8 | 8 | — (unchanged this pass) |
+| 8 | SQL / database engineering | 1 | 1 | 1 | 1 | **8** | **HIGH** (was the single lowest, most explicitly-flagged gap in this audit — see Pass 4 section below) |
+| 9 | SDLC / CI | 2 | 6 | 6 | 6 | 6 | — (unchanged this pass; the new module has no CI workflow wired up yet, see `TODO.md`) |
+| 10 | Documentation | 6 | 9 | 9 | 9 | 9 | — (already 9; `DATABASE_DESIGN.md` added, see below) |
+| 11 | Recruiter readability | 3 | 8 | 8 | 8 | 8 | — (unchanged this pass) |
+| 12 | Interview discussability | 6 | 8 | 9 | 10 | 10 | — (already 10; this pass adds real SQL depth to draw on, not a higher ceiling) |
+
+---
+
+## Pass 4 — SQL / Database Persistence (`ledger/sql/`)
+
+Full rationale in `docs/DATABASE_DESIGN.md`. This section is the scorecard only.
+
+**What was added:** `app/src/main/resources/db/migration/` (3 migration files:
+`accounts`, `ledger_entries`, and their indexes — normalized, with named
+`PRIMARY KEY`/`FOREIGN KEY`/`UNIQUE`/`NOT NULL`/`CHECK` constraints and
+inline rationale comments) and `app/src/main/java/com/skillswap/app/ledger/sql/`
+(`SchemaMigrator`, `JdbcLedgerStore`, `AppendOutcome`,
+`LedgerPersistenceException`), plus a new `LedgerEntryFactory` in the base
+`ledger/` package extracted from `TransactionLedger.commit()` to eliminate
+duplication between the in-memory and SQL-backed paths. 20 new integration
+tests (140 total repo-wide) against a real, migrated H2 database, covering
+insert, lookup, uniqueness, idempotency (including two dedicated concurrency
+tests mirroring Pass 3's in-memory ones), rollback-on-failure (insufficient
+funds AND a foreign-key violation, each proven to leave zero partial state),
+and — deliberately bypassing the Java API — six tests proving the database's
+own `NOT NULL`/`CHECK` constraints reject bad data via raw SQL even if the
+validated Java constructors were never called.
+
+**A real bug, caught and fixed during this pass, not glossed over:** the
+first working version of the SQL round-trip broke `LedgerIntegrityVerifier`
+100% of the time — every entry read back from the database failed its own
+hash check. Root cause: `java.time.Instant` carries nanosecond precision,
+but SQL `TIMESTAMP` columns (H2 and real PostgreSQL alike) don't preserve
+that, and — the part that took a second attempt to get right — they *round*
+to their declared precision on storage, not *truncate*. The first fix
+(truncating to microseconds before hashing) was still wrong for exactly that
+reason. The real fix — round to the nearest microsecond, matching the
+database's own rounding rule, in exactly one place (`LedgerEntry`'s
+canonicalization) — is documented in `docs/DATABASE_DESIGN.md`'s
+"Tradeoffs" table and `docs/INTEGRITY_AND_IDEMPOTENCY.md`. All 140 tests,
+including this fix's own regression coverage, pass after the correction.
+
+**Why this module has zero Android-SDK-verification gap, like Pass 3:** no
+Android or Firebase import anywhere; H2 and JDBC are plain JVM. Unlike
+Pass 3, this pass *did* need an external dependency (the H2 driver) — Maven
+Central was reachable from this sandbox (confirmed by `curl`), unlike
+Google's Maven repo, which is what `BUILD_NOTES.md` §1 documents as blocked
+for the Android build itself. Docker was present but had no running daemon,
+so Testcontainers/real PostgreSQL was not available — H2 in
+`MODE=PostgreSQL` compatibility mode was the honest substitute, with the
+schema itself written in portable, standard SQL. See
+`docs/DATABASE_DESIGN.md`'s "Tradeoffs" table for exactly what gap that
+leaves (this repository's own `TestDatabases` test helper documents it too).
+
+**What this module deliberately is not:** wired into the in-memory
+`TransactionLedger` for actual durability (they share domain types but not
+a write path yet — see `TODO.md`), run against real PostgreSQL, or a claim
+that this makes SkillSwap PCI DSS compliant or production-grade (unchanged
+from Pass 3's `docs/THREAT_MODEL.md` §0 — none of that changes here).
 
 ---
 

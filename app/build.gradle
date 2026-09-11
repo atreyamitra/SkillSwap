@@ -56,6 +56,10 @@ dependencies {
     implementation 'com.google.android.gms:play-services-location:21.3.0'
 
     testImplementation 'junit:junit:4.13.2'
+    // Embedded, pure-JVM database used only by the ledger/sql/* integration tests
+    // (see docs/DATABASE_DESIGN.md) -- no Testcontainers/Docker dependency, since a
+    // local unit test module can't assume a Docker daemon is available.
+    testImplementation 'com.h2database:h2:2.2.224'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
 }

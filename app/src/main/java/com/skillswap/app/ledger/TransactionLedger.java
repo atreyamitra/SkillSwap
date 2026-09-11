@@ -1,18 +1,15 @@
 package com.skillswap.app.ledger;
 
-import com.skillswap.app.ledger.crypto.HmacUtil;
 import com.skillswap.app.ledger.exception.IdempotencyKeyConflictException;
 import com.skillswap.app.ledger.exception.InsufficientFundsException;
 
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -156,21 +153,8 @@ public final class TransactionLedger {
                 }
             }
 
-            long sequenceNumber = entries.size();
-            String previousHash = entries.isEmpty()
-                    ? LedgerEntry.GENESIS_HASH
-                    : entries.get(entries.size() - 1).getEntryHash();
-            String transactionId = UUID.randomUUID().toString();
-            Instant recordedAt = clock.instant();
-
-            byte[] canonical = LedgerEntry.canonicalBytes(sequenceNumber, transactionId,
-                    request.getIdempotencyKey(), request.getPayerId(), request.getPayeeId(),
-                    request.getAmount(), request.getDescription(), recordedAt, previousHash);
-            String entryHash = HmacUtil.hex(HmacUtil.compute(hmacKey, canonical));
-
-            LedgerEntry entry = new LedgerEntry(sequenceNumber, transactionId, request.getIdempotencyKey(),
-                    request.getPayerId(), request.getPayeeId(), request.getAmount(), request.getDescription(),
-                    recordedAt, previousHash, entryHash);
+            LedgerEntry previous = entries.isEmpty() ? null : entries.get(entries.size() - 1);
+            LedgerEntry entry = LedgerEntryFactory.next(previous, request, hmacKey, clock);
             entries.add(entry);
 
             if (!request.getPayerId().equals(SYSTEM_ACCOUNT)) {
@@ -178,7 +162,7 @@ public final class TransactionLedger {
             }
             balances.merge(request.getPayeeId(), request.getAmount(), BigDecimal::add);
 
-            return new TransactionResult(transactionId, sequenceNumber, entryHash, false);
+            return new TransactionResult(entry.getTransactionId(), entry.getSequenceNumber(), entry.getEntryHash(), false);
         } finally {
             appendLock.unlock();
         }

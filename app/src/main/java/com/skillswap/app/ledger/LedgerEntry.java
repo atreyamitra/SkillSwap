@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /**
@@ -62,8 +63,12 @@ public final class LedgerEntry {
      * {@code LedgerEntry} it will belong to exists (the entry's own constructor
      * requires the hash as an argument). {@link #toCanonicalBytes()} is the instance
      * form used when re-verifying an existing entry, and simply forwards to this one.
+     * {@code public} so {@link LedgerEntryFactory} (the normal way to build a
+     * correctly-chained entry) and tests that deliberately need to construct an
+     * entry with a specific, hand-controlled hash (see e.g.
+     * {@code JdbcLedgerStoreTest}'s uniqueness tests) can both call it directly.
      */
-    static byte[] canonicalBytes(long sequenceNumber, String transactionId, String idempotencyKey,
+    public static byte[] canonicalBytes(long sequenceNumber, String transactionId, String idempotencyKey,
                                   String payerId, String payeeId, BigDecimal amount, String description,
                                   Instant recordedAt, String previousHash) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -74,9 +79,37 @@ public final class LedgerEntry {
         writeField(out, payeeId);
         writeField(out, amount.toPlainString());
         writeField(out, description);
-        writeField(out, recordedAt.toString());
+        // Rounded to microseconds before hashing: java.time.Instant carries
+        // nanosecond precision, but neither H2 nor real PostgreSQL preserve that —
+        // PostgreSQL's timestamp type has a hard microsecond ceiling regardless of
+        // declared precision, and (this is the part that actually bit this project's
+        // own SQL integration smoke test) both round to the nearest microsecond on
+        // storage rather than truncating: nanos=...146977 round-trips as ...147000,
+        // not ...146000. Hashing the raw, untruncated Instant — or naively truncating
+        // it — would make the hash unrecomputable after a round trip through either
+        // database. round(recordedAt) applies the identical rounding rule once here,
+        // so every consumer (in-memory or SQL-backed) hashes the same value. See
+        // docs/DATABASE_DESIGN.md "Consistency assumptions".
+        writeField(out, round(recordedAt).toString());
         writeField(out, previousHash);
         return out.toByteArray();
+    }
+
+    /**
+     * Rounds {@code instant} to the nearest microsecond, matching the rounding
+     * (not truncating) behavior observed from H2's and standard SQL's fixed-precision
+     * TIMESTAMP storage. Nanos exactly at the halfway point (500) round up, per
+     * {@link Math#round(double)}, which is the same tie-breaking rule Java's own
+     * rounding conversions use elsewhere.
+     */
+    private static Instant round(Instant instant) {
+        long nanos = instant.getNano();
+        long roundedMicros = Math.round(nanos / 1000.0);
+        Instant startOfSecond = instant.truncatedTo(ChronoUnit.SECONDS);
+        if (roundedMicros == 1_000_000L) {
+            return startOfSecond.plusSeconds(1);
+        }
+        return startOfSecond.plusNanos(roundedMicros * 1000);
     }
 
     private static void writeField(ByteArrayOutputStream out, String value) {

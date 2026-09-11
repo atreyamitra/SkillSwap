@@ -3,22 +3,36 @@
 Prioritized, in the order a next contributor should tackle them. Each item
 names why it's next and roughly how big it is.
 
-## Ledger module (`ledger/`) — see docs/INTEGRITY_AND_IDEMPOTENCY.md §7 for the full list
+## Ledger module (`ledger/`, `ledger/sql/`) — see docs/INTEGRITY_AND_IDEMPOTENCY.md §7 and docs/DATABASE_DESIGN.md "Tradeoffs" for the full list
 
-- **Wire it into a real feature, or don't.** The ledger is currently standalone
-  (no caller in the app). The natural fit would be a future "session credits"
-  feature; until/unless that's built, this module is a portfolio-grade
-  subsystem in its own right, not a half-integrated feature. Don't force an
-  integration just to have one.
-- **Bounded idempotency-key retention.** `byIdempotencyKey` grows without limit;
-  a real deployment needs a TTL/eviction policy (e.g. evict keys older than
-  24h) so long-running processes don't leak memory.
-- **Persistence.** Everything is in-memory; a process restart loses the ledger.
-  Not attempted here because it would require picking a real storage layer,
-  which is a bigger, separate decision than this pass's scope.
-- **Multi-process idempotency.** Today's guarantees are per-JVM-instance only;
-  a distributed version needs a shared store (e.g. a database with a unique
-  constraint on idempotency key) instead of a local `ConcurrentHashMap`.
+- **Wire the in-memory engine and the SQL store together.** They currently exist
+  side by side, sharing domain types (`LedgerEntry`, `LedgerEntryFactory`,
+  `LedgerIntegrityVerifier`) but with no code path where `TransactionLedger`
+  actually writes through to `JdbcLedgerStore` for durability. The natural next
+  step is a `TransactionLedger` variant (or a decorator) that commits in-memory
+  *and* persists via the store inside the same logical operation — deliberately
+  not done in this pass, since getting the failure semantics right (what
+  happens if the SQL write fails after the in-memory commit succeeds?) is a
+  real design question, not a mechanical wiring exercise.
+- **Wire either into a real SkillSwap feature, or don't.** Both are currently
+  standalone (no caller in the Android app). The natural fit would be a future
+  "session credits" feature; until/unless that's built, this module is a
+  portfolio-grade subsystem in its own right, not a half-integrated feature.
+- **Bounded idempotency-key retention** (in-memory engine only — the SQL store
+  has no equivalent unbounded map). `byIdempotencyKey` grows without limit; a
+  real deployment needs a TTL/eviction policy (e.g. evict keys older than 24h)
+  so long-running processes don't leak memory.
+- **A real PostgreSQL run.** The schema is written to be PostgreSQL-compatible
+  and tested against H2 (`MODE=PostgreSQL`) since this sandbox has no running
+  Docker daemon for Testcontainers — see `docs/DATABASE_DESIGN.md`. Running the
+  same migrations and test suite against a real PostgreSQL instance (locally,
+  or via Testcontainers on a machine with Docker available) would close that
+  gap and is the single most valuable thing to verify next for this layer.
+- **Migration rollback tooling.** `SchemaMigrator` applies forward only, by
+  design (see its Javadoc) — no `down` migrations. Fine for this project's
+  three additive, reviewed-by-hand migrations; a real multi-developer project
+  would want either a real migration framework or a hand-written rollback
+  story before this scales past a handful of files.
 
 ## Highest priority
 
@@ -31,17 +45,16 @@ names why it's next and roughly how big it is.
    for the exact list of touched files and `STATUS.md` for what's verified
    vs. not.
 
-1. **Add a small, real SQL-backed feature.** The repository currently has
-   zero SQL (Firebase Realtime Database only — see `AUDIT.md` §8). The most
-   defensible, non-invented way to close this gap: use Room (SQLite) to
-   cache the signed-in user's own swap-request history locally for offline
-   viewing on the Requests tab. This is a genuinely useful feature (offline
-   support), not padding, and it would give real, discussable SQL/ORM
-   experience (schema design, a DAO with a couple of real queries, a
-   migration). Estimated size: one `@Entity`, one `@Dao`, one `RoomDatabase`
-   subclass, and a small sync step in `SwapRequestRepository`. **This is the
-   single highest-value next improvement** — see the note at the end of
-   `AUDIT.md`.
+1. ~~Add a small, real SQL-backed feature.~~ **Done** — see `ledger/sql/`
+   (`JdbcLedgerStore`, a migrated PostgreSQL-compatible schema, and 20
+   integration tests against a real H2 database) and `docs/DATABASE_DESIGN.md`.
+   This superseded the original plan here (a Room/SQLite cache of swap-request
+   history in the Android app itself) in favor of a standalone module that's
+   fully testable in this sandbox without an Android SDK — see
+   `docs/DATABASE_DESIGN.md`'s opening section for why. The Android-side
+   Room/SQLite idea is still a reasonable, separate future feature if the app
+   ever needs offline swap-request viewing, but is no longer needed to
+   demonstrate real SQL competence in this repository.
 
 2. **Unit test `ValidationUtils` without an Android dependency.** Extract the
    email-regex/null-check logic into a pure-Java class so it can be tested

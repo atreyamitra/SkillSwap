@@ -1,7 +1,7 @@
 # Status
 
 Current state of the repository at a glance. Last updated 2026-09-11
-(integrity/idempotency/concurrency pass).
+(SQL/database persistence pass).
 
 ## What works
 
@@ -11,20 +11,26 @@ Current state of the repository at a glance. Last updated 2026-09-11
   correctness was checked instead).
 - The domain model (`models/`, `exception/`), the pure-utility classes
   (`utils/MatchUtils`, `utils/DistanceUtils`, `firebase/DatabasePaths`), and
-  the ledger module (`ledger/`, `ledger/crypto/`, `ledger/exception/`) are
-  unit tested and passing — **120/120 tests**, compiled clean with
-  `javac -Xlint:all -Werror` (zero warnings). The 12 concurrency-specific
-  tests were additionally run 30 times in fresh JVMs with zero failures to
-  rule out flakiness. See `AUDIT.md` §5/§6 and
-  `docs/ENGINEERING_DECISIONS.md`/`docs/INTEGRITY_AND_IDEMPOTENCY.md` for the
-  exact verification methods.
-- **Flagship feature:** `ledger/TransactionLedger` — an in-memory, thread-safe,
-  idempotent, HMAC-tamper-evident transaction ledger, with a full design
-  writeup (`docs/INTEGRITY_AND_IDEMPOTENCY.md`) and threat model
-  (`docs/THREAT_MODEL.md`). Standalone and Android/Firebase-free by design —
-  not currently wired into any SkillSwap screen (the app has no monetary
-  feature), so it is fully compiled and tested in this sandbox with no
-  Android SDK gap to flag.
+  the ledger module (`ledger/`, `ledger/crypto/`, `ledger/exception/`,
+  `ledger/sql/`) are unit/integration tested and passing —
+  **140/140 tests**, compiled clean with `javac -Xlint:all -Werror` (zero
+  warnings). The 4 concurrency-specific test classes (2 in-memory, 2
+  SQL-backed) were additionally run 30 times each in fresh JVMs with zero
+  failures to rule out flakiness. See `AUDIT.md` §5-7 and
+  `docs/ENGINEERING_DECISIONS.md`/`docs/INTEGRITY_AND_IDEMPOTENCY.md`/
+  `docs/DATABASE_DESIGN.md` for the exact verification methods.
+- **Flagship feature:** `ledger/TransactionLedger` (in-memory) and
+  `ledger/sql/JdbcLedgerStore` (durable, real-schema-backed) — an idempotent,
+  HMAC-tamper-evident transaction ledger with a normalized SQL persistence
+  layer, full design writeups (`docs/INTEGRITY_AND_IDEMPOTENCY.md`,
+  `docs/DATABASE_DESIGN.md`) and a threat model (`docs/THREAT_MODEL.md`).
+  Standalone and Android/Firebase-free by design — not currently wired into
+  any SkillSwap screen (the app has no monetary feature), so the whole
+  module, migrations included, is fully compiled and tested in this sandbox
+  against a real (H2) database with no Android SDK gap to flag. Maven
+  Central was reachable from this sandbox (unlike Google's Maven repo, which
+  Android's own build needs — see `BUILD_NOTES.md` §1), which is what made
+  a real H2 dependency and real migration-runner testing possible here.
 - Firebase security rules (`firebase/database.rules.json`) are written and
   documented but have not been deployed against a live Firebase project from
   this sandbox — deploying and exercising them requires a real Firebase
