@@ -1,0 +1,30 @@
+{
+  "_comment": "PLACEHOLDER. Download your real google-services.json from the Firebase console (Project Settings > Your apps > Android app com.skillswap.app) and save it as app/google-services.json. See BUILD_NOTES.md for exact steps. This example file is structurally similar to the real one but contains no real credentials.",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "skillswap-demo",
+    "storage_bucket": "skillswap-demo.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.skillswap.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "REPLACE_WITH_REAL_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

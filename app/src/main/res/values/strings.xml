@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SkillSwap</string>
+    <string name="notification_channel_requests_name">Swap Requests</string>
+    <string name="notification_channel_requests_desc">Notifications about incoming and accepted skill swap requests</string>
+    <string name="notification_channel_sessions_name">Session Reminders</string>
+    <string name="notification_channel_sessions_desc">Reminders about upcoming scheduled sessions</string>
+</resources>
