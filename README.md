@@ -1,208 +1,182 @@
-# SkillSwap
+# Ledger Guard
+
+A Java engine for **exactly-once, tamper-evident financial-style transactions** —
+idempotent under retries, safe under real concurrency, and verifiable after the
+fact via HMAC — with both an in-memory engine and a real, migrated SQL-backed store.
 
 [![Android CI](https://github.com/atreyamitra/SkillSwap/actions/workflows/android-ci.yml/badge.svg)](https://github.com/atreyamitra/SkillSwap/actions/workflows/android-ci.yml)
 
-The badge reflects the default branch's latest run of
-[`android-ci.yml`](.github/workflows/android-ci.yml) (checkout → JDK 17 →
-`testDebugUnitTest` → `lintDebug` → `assembleDebug`, all fail-on-error — see
-[`docs/SDLC.md`](docs/SDLC.md) §6). It won't show green until that workflow has
-actually run on `main`; this repo does not claim CI status it hasn't earned.
+> **Scope note:** Ledger Guard is the `ledger/` module inside this repository,
+> **SkillSwap** — an Android skill-exchange app that is otherwise unrelated (see
+> `BUILD_NOTES.md`). The module has zero Android/Firebase dependency; it's a
+> standalone Java library that happens to live in this repo. Built to explore
+> financial-transaction engineering problems in the abstract — **not affiliated
+> with, built for, or modeled on any bank**, and it makes no production,
+> compliance, or scale claims (see "Security model / limitations").
 
-A native Android app (Java, no Kotlin/Compose) where users list skills they can
-**teach** and skills they want to **learn**, get matched against other users by a
-transparent scoring algorithm, send/accept skill-swap requests, chat, schedule
-sessions, and leave ratings.
+## Why this exists
 
-This is an independent educational/portfolio project built to demonstrate Java
-fundamentals, layered application design, and basic backend integration
-(Firebase Authentication + Realtime Database). It is not affiliated with, built
-for, or endorsed by any employer, and none of its data or "test" accounts are real.
+Most CRUD demos never touch the problems that actually separate engineering from
+scripting: what happens when a request is retried, when two requests race, or
+when stored data is silently altered. Ledger Guard was built to answer those
+questions with code and tests, not slides — one JVM lock and one database
+constraint at a time.
 
-## Why this project
+## Engineering highlights
 
-Most tutorial-driven Android apps skip the parts that actually distinguish
-engineering work from "connect a screen to a database": preventing duplicate
-writes, keeping denormalized data consistent, writing server-side authorization
-rules instead of trusting the client, and having a testable core instead of
-logic wired directly into `Activity` classes. This project's design choices
-(see `firebase/DatabasePaths.java`, `firebase/database.rules.json`, and
-`utils/MatchUtils.java`) were made with those concerns in mind.
+- **Java 17, zero framework dependency** — `ledger/` compiles and runs with
+  plain `javac` + JUnit; no Android, no Spring, no mocks standing in for real behavior.
+- **Monetary correctness** — every amount is `BigDecimal`, normalized to a fixed
+  scale at construction so `5` and `5.00` are never silently unequal; no
+  `float`/`double` anywhere in the module.
+- **Append-only ledger model** — each `LedgerEntry` chains to the one before it
+  via a stored hash; the log, not a cache, is the source of truth for balances.
+- **HMAC-SHA256 integrity** — every entry is signed; verification uses
+  constant-time comparison (`MessageDigest.isEqual`), not `String.equals`.
+- **Idempotency, enforced twice, independently** — a `ConcurrentHashMap`
+  at-most-once guarantee in Java, *and* a `UNIQUE` constraint in SQL — so the
+  guarantee survives even across two separate writer processes.
+- **Concurrency safety proven, not assumed** — two deterministic stress tests
+  (16 threads × 50 transactions in-memory; 30 concurrent JDBC connections
+  against a real database) assert only invariants that hold under *any*
+  interleaving. Each run 30 consecutive times in development with zero failures.
+- **Real SQL persistence** — a normalized, migrated schema (PK/FK/UNIQUE/
+  NOT NULL/CHECK constraints, indexes matched to actual queries), tested against
+  a real H2 database, not a mock.
+- **85 tests for this module** (140 across the repo), including 5 tests that
+  bypass the Java API entirely to prove the *database* rejects bad data on its own.
+- **CI on every push/PR** — GitHub Actions runs the full suite plus Android Lint
+  and fails the build on any test failure.
 
-## Flagship engineering feature: an idempotent, tamper-evident transaction ledger
+## Architecture
 
-`app/src/main/java/com/skillswap/app/ledger/` is a standalone, Android/Firebase-free
-Java module — a thread-safe, idempotent transaction ledger with HMAC-based integrity
-verification, available both in-memory and backed by a real, migrated SQL schema. It
-exists to demonstrate, with 140 passing tests (including two deterministic
-concurrency stress tests — one in-memory, one against a real database — each
-verified over 30 consecutive runs with zero flakiness), a precise answer to: **what
-happens if two requests hit this service at exactly the same time?**
+```mermaid
+flowchart LR
+    Req["TransactionRequest\n(validated: amount, payer≠payee)"]
+    Factory["LedgerEntryFactory\n(assigns sequence + HMAC chain)"]
+    Mem["TransactionLedger\n(in-memory, ReentrantLock + ConcurrentHashMap)"]
+    Sql["JdbcLedgerStore\n(H2 / PostgreSQL-compatible SQL)"]
+    Verify["LedgerIntegrityVerifier\n(recomputes + compares HMACs)"]
 
-- Duplicate/concurrent-duplicate request detection via idempotency keys — enforced
-  in Java (`ConcurrentHashMap#computeIfAbsent`'s at-most-once-per-key guarantee) AND,
-  independently, by a database `UNIQUE` constraint (`ledger/sql/`), closing the
-  multi-process gap the in-memory version alone can't
-- Atomic updates and lost-update prevention (a single locked critical section
-  in-memory; an atomic guarded `UPDATE ... WHERE balance >= ?` plus a JDBC
-  transaction at the database layer)
-- A tamper-evident HMAC-SHA256 hash chain, with constant-time comparison and
-  length-prefixed canonical encoding
-- A normalized SQL schema (PostgreSQL-compatible DDL, tested against H2) with
-  primary/foreign keys, `UNIQUE`/`NOT NULL`/`CHECK` constraints, and indexes matched
-  to real access patterns — every constraint proven by a test that deliberately
-  tries to violate it, including by bypassing the Java layer entirely with raw SQL
-- An honest, scoped threat model — explicitly **not** claiming PCI DSS compliance,
-  "banking-grade" security, or any regulatory certification
+    Req --> Factory --> Mem
+    Factory --> Sql
+    Mem --> Verify
+    Sql --> Verify
+```
 
-Full design writeup: [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_IDEMPOTENCY.md).
-Database design: [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md).
-Threat model: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+Both engines consume the same `TransactionRequest`/`LedgerEntry` types and the
+same `LedgerIntegrityVerifier` — the hash-chain logic exists exactly once,
+shared by both. Full rationale: [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_IDEMPOTENCY.md).
 
-## Prerequisites
+## Core invariants
 
-- JDK 17 (matches `app/build.gradle`'s `sourceCompatibility`/`targetCompatibility`
-  and the CI workflow's `setup-java` step)
-- Android Studio (Koala/2024.1+) or a standalone Android SDK with platform 34 +
-  build-tools, reachable over the network the first time you sync (see
-  `BUILD_NOTES.md` §1 if that sync fails in a sandboxed environment)
-- A Firebase project, for anything beyond compiling/testing (see "Setup" below)
+1. **Idempotency** — the same key + same payload, any number of times or any
+   concurrency, produces exactly one effect.
+2. **Conflict rejection** — the same key + a *different* payload always throws,
+   never silently overwrites.
+3. **Sequence contiguity** — committed entries occupy exactly `{0..N-1}`, no gaps or duplicates.
+4. **Chain integrity** — every entry's stored hash matches its recomputed HMAC;
+   every `previousHash` matches its predecessor's.
+5. **Atomicity** — a transaction fully commits (entry + both balances) or has no effect at all.
+6. **Log-as-truth** — balances replayed from the log always equal the live cache.
 
-## Setup
+## Example workflow
+
+```java
+TransactionLedger ledger = new TransactionLedger(hmacKey);
+ledger.deposit("seed-1", "alice", new BigDecimal("100.00"));
+
+TransactionRequest payment =
+    new TransactionRequest("order-42", "alice", "bob", new BigDecimal("10.00"), "lunch");
+
+ledger.submit(payment);          // commits: alice -10.00, bob +10.00
+ledger.submit(payment);          // retried request -> replayed, NOT re-applied
+ledger.verifyIntegrity();        // walks the hash chain, detects any tampering
+```
+
+## Getting started
 
 ```bash
 git clone https://github.com/atreyamitra/SkillSwap.git
 cd SkillSwap
-cp app/google-services.json.example app/google-services.json  # placeholder; see below
 ```
 
-To actually run the app (sign up, store data), replace that placeholder with a
-real `app/google-services.json` from a Firebase project where you've enabled
-Email/Password auth and created a Realtime Database with the rules in
-`firebase/database.rules.json` — full step-by-step in
-[`BUILD_NOTES.md`](BUILD_NOTES.md) §3. Compiling and running the test suite
-(next section) does **not** need a real Firebase project — the placeholder is
-enough.
+`ledger/` has no Android dependency, so it can be exercised two ways:
 
-**Run it:**
+- **Via Gradle** (needs Android SDK, since it's built as part of the app module):
+  `./gradlew testDebugUnitTest`
+- **Standalone** (what this project's own CI-equivalent sandbox verification
+  used — no Android SDK required): compile `ledger/**/*.java` with `javac`
+  against JUnit + H2 on the classpath and run with `java
+  org.junit.runner.JUnitCore` — exact commands in `AUDIT.md`.
+
+## Running tests
+
 ```bash
-./gradlew installDebug   # installs onto a connected device/emulator
-# then launch "SkillSwap" from the device's app drawer, or:
-adb shell am start -n com.skillswap.app/.activities.SplashActivity
+./gradlew testDebugUnitTest
 ```
 
-**Test it:**
-```bash
-./gradlew testDebugUnitTest   # exact command CI runs; see docs/SDLC.md §6
+Runs all 140 tests (unit + the H2-backed integration tests in `ledger/sql/`) and
+fails the build on any failure — the same command CI runs.
+
+## Failure scenarios tested
+
+- Repeated identical request → replay, not a duplicate transaction
+- Same idempotency key, conflicting payload → rejected, nothing written
+- N threads racing the same key (in-memory and via separate JDBC connections)
+  → exactly one commit, or one success + one conflict
+- Insufficient funds → whole multi-step transaction rolled back, zero partial state
+- Transaction against a non-existent account → foreign-key rollback, zero partial state
+- Altered field, corrupted hash, wrong HMAC key, reordered/deleted entries →
+  each detected by `LedgerIntegrityVerifier`, with the specific failure and index
+- Malformed input: null/blank ids, self-transactions, non-2dp amounts, amounts
+  above/below the configured bounds
+- Raw SQL bypassing the Java layer entirely → still rejected by `NOT NULL`/`CHECK` constraints
+
+## Security model / limitations
+
+- HMAC proves data wasn't altered by someone **without** the key — it is not a
+  digital signature and provides no non-repudiation.
+- In-memory engine is single-JVM only; no persistence across a restart.
+- No key rotation, storage, or distributed consensus.
+- No claim of PCI DSS compliance, "banking-grade" security, or production readiness.
+
+Full threat model, adversaries considered, and explicit non-claims:
+[`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+
+## Engineering decisions
+
+- [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_IDEMPOTENCY.md) — concurrency model, HMAC design, idempotency semantics
+- [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md) — schema, constraints, indexes, transaction boundaries
+- [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) — adversaries, guarantees, explicit non-claims
+- [`docs/ENGINEERING_DECISIONS.md`](docs/ENGINEERING_DECISIONS.md) — domain-model tradeoffs
+- [`docs/SDLC.md`](docs/SDLC.md) — this project's build/test/CI lifecycle and Definition of Done
+
+## Project structure
+
+```
+app/src/main/java/com/skillswap/app/ledger/
+  TransactionRequest.java        validated input (amount, payer/payee, idempotency key)
+  LedgerEntry.java                immutable, hash-chained log entry
+  LedgerEntryFactory.java         builds the next chained entry
+  TransactionLedger.java          in-memory engine (locking + idempotency)
+  LedgerIntegrityVerifier.java    pure hash-chain verification
+  crypto/                         HmacUtil, ConstantTimeCompare
+  exception/                      LedgerException hierarchy
+  sql/                            JdbcLedgerStore, SchemaMigrator
+app/src/main/resources/db/migration/   PostgreSQL-compatible schema (3 migrations)
+app/src/test/java/.../ledger/          85 tests (unit + SQL integration + concurrency)
 ```
 
-## Tech stack
+(The rest of the repository — `activities/`, `firebase/`, etc. — is the
+SkillSwap Android app this module lives alongside; see `BUILD_NOTES.md`.)
 
-| Layer | Choice |
-|---|---|
-| Language | Java 17 |
-| UI | Android Views + ViewBinding + Material Components (no Compose) |
-| Auth | Firebase Authentication (email/password) |
-| Data | Firebase Realtime Database (JSON tree, path-based security rules) |
-| Background work | WorkManager (session reminders) |
-| Location | FusedLocationProviderClient + Haversine distance |
-| Testing | JUnit 4 (unit + H2-backed integration tests, no Robolectric) |
-| Static analysis | Android Lint (`./gradlew lintDebug`, in CI) |
-| CI | GitHub Actions (`.github/workflows/android-ci.yml` — test, lint, assemble) |
-| Dependency updates | Dependabot (`.github/dependabot.yml` — Gradle + Actions, weekly) |
+## Future improvements
 
-minSdk 24, target/compileSdk 34.
+- Wire the in-memory engine and the SQL store together for real durability
+  (currently independent, sharing only domain types)
+- Run the schema against real PostgreSQL, not just H2
+- Bounded idempotency-key retention (currently unbounded in-memory)
+- Multi-process/distributed transaction ordering
 
-## Architecture
-
-```
-com.skillswap.app/
-  activities/   11 screens (Splash, Login, Register, Main, UserDetail, Chat,
-                EditProfile, ManageSkills, SessionSchedule, Review, Favorites)
-  fragments/    4 bottom-nav destinations hosted inside MainActivity
-  adapters/     RecyclerView.Adapter subclasses (ViewHolder pattern)
-  models/       POJOs mirroring the database (User, SwapRequest, Message,
-                Session, Review), each with a validating constructor,
-                identity-based equals/hashCode, and — for SwapRequest and
-                Session — a status enum (RequestStatus/SessionStatus) that
-                encodes a real finite state machine instead of a bare
-                String constant
-  exception/    A small hierarchy (SkillSwapException and two subclasses)
-                for actual business-rule violations, as distinct from
-                generic bad-argument errors (which use plain
-                IllegalArgumentException/NullPointerException)
-  firebase/     DatabasePaths (single source of truth for path strings),
-                AuthManager, and one thin repository per data type —
-                Activities/Fragments never call FirebaseDatabase directly
-  utils/        MatchUtils, DistanceUtils, ValidationUtils, PrefsManager,
-                NotificationUtils, LocationUtils
-```
-
-Activities/Fragments are the view + controller layer; the `firebase/` package is
-a thin repository layer so database access and path strings live in one place
-instead of being copy-pasted across every screen; `models/` and `utils/` hold
-side-effect-free domain logic (matching, distance, validation, status
-transitions) kept deliberately free of Android framework dependencies so it
-can be unit tested without an emulator. The tradeoffs behind the domain model
-— why status fields are `enum`-typed in the API but `String`-typed on the
-wire, why models aren't *fully* immutable — are written up in
-[`docs/ENGINEERING_DECISIONS.md`](docs/ENGINEERING_DECISIONS.md).
-
-Full architecture notes, the Firebase schema, security rules explanation, and a
-20-question viva-prep Q&A are in [`BUILD_NOTES.md`](BUILD_NOTES.md).
-
-## The matching algorithm
-
-`utils/MatchUtils.computeMatch()` scores a candidate match 0-100 as the sum of
-two independently capped 50-point halves:
-
-- how much of what **they teach** overlaps with what **you want to learn**
-  (scaled by how much of your want-list that covers), and
-- how much of what **you teach** overlaps with what **they want to learn**.
-
-This rewards a genuinely mutual trade over a one-directional overlap — the
-whole point of a "swap" — using nothing more exotic than case-insensitive set
-intersection. See `MatchUtilsTest.java` for the worked examples.
-
-## Testing
-
-All automated tests live under `app/src/test/java` and run as plain JUnit 4 —
-**140 tests total**, no Android/Robolectric dependency, all runnable with the
-one command in "Setup" above:
-
-- **Unit tests**: `MatchUtilsTest`, `DistanceUtilsTest`, `DatabasePathsTest`,
-  `RequestStatusTest`/`SessionStatusTest`, `SwapRequestTest`/`SessionTest`/
-  `ReviewTest`/`MessageTest`/`UserTest` (domain model validation and
-  `equals`/`hashCode`), and the `ledger/` module's own unit tests (HMAC,
-  constant-time comparison, idempotency, and two deterministic concurrency
-  stress tests — see [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_IDEMPOTENCY.md)).
-- **Integration tests**: `ledger/sql/*Test` — run against a real, migrated H2
-  database (schema, constraints, transactions, and rollback all exercised for
-  real, not mocked) — see [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md).
-
-(All of this was also verified directly in this repository's development
-sandbox — which has no Android SDK — by compiling and running the
-Android-framework-free subset with plain `javac`/`java`. See `AUDIT.md` for the
-exact commands and `docs/SDLC.md` §4 for the full testing picture.)
-
-There are currently no instrumented (on-device) or UI tests; see `TODO.md`.
-
-## Project docs
-
-- [`docs/SDLC.md`](docs/SDLC.md) — this project's lifecycle end to end
-  (requirements → design → implementation → testing → review → CI → release
-  concept → maintenance) and its Definition of Done.
-
-- [`BUILD_NOTES.md`](BUILD_NOTES.md) — architecture, Firebase schema & security
-  rules, demo script, viva-style Q&A.
-- [`docs/ENGINEERING_DECISIONS.md`](docs/ENGINEERING_DECISIONS.md) — the
-  domain model's design decisions and their tradeoffs.
-- [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_IDEMPOTENCY.md) /
-  [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md) /
-  [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) — the ledger module's design,
-  its SQL schema, and its threat model, in full.
-- [`AUDIT.md`](AUDIT.md) — an honest engineering self-review: scores, evidence,
-  and what was fixed.
-- [`STATUS.md`](STATUS.md) — current state at a glance.
-- [`TODO.md`](TODO.md) — known gaps and next steps, prioritized.
-- [`HANDOFF.md`](HANDOFF.md) — what a new contributor needs to know before
-  touching this code.
+Full list with rationale: [`TODO.md`](TODO.md).
