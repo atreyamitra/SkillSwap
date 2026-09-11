@@ -3,6 +3,23 @@
 Prioritized, in the order a next contributor should tackle them. Each item
 names why it's next and roughly how big it is.
 
+## SDLC infrastructure (see docs/SDLC.md)
+
+- **Finish converting silent `onError` bodies to `AppLogger` calls.**
+  `MainActivity`'s two are done (see `STATUS.md`); the same empty
+  `public void onError(String message) { }` pattern still exists in
+  `FavoritesActivity`, `ManageSkillsActivity`, `EditProfileActivity`,
+  `UserDetailActivity`, `HomeFragment`, `RequestsFragment`, and
+  `ChatListFragment` (grep for the exact string to find every remaining
+  spot). Mechanical, low-risk, one line each — deliberately not done in one
+  sweep here since none of it can be compiled in this sandbox and a batch
+  edit across 7 files raises the odds of an unnoticed typo.
+- **Wire branch-protection + required status check** (GitHub repo settings,
+  not a file) so `android-ci.yml` passing is actually required before merge
+  — currently the workflow runs but nothing enforces it.
+- **Code coverage tooling** (e.g. JaCoCo) if this project ever wants a
+  number instead of case-by-case "does this have a test" review.
+
 ## Ledger module (`ledger/`, `ledger/sql/`) — see docs/INTEGRITY_AND_IDEMPOTENCY.md §7 and docs/DATABASE_DESIGN.md "Tradeoffs" for the full list
 
 - **Wire the in-memory engine and the SQL store together.** They currently exist

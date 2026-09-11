@@ -1,7 +1,29 @@
 # Status
 
 Current state of the repository at a glance. Last updated 2026-09-11
-(SQL/database persistence pass).
+(SDLC infrastructure pass — see `docs/SDLC.md`).
+
+## SDLC infrastructure added this pass
+
+- Fixed a real `.gitignore` bug: `/build` only ever ignored a top-level
+  `build/` directory, never `app/build/` (the one Gradle actually writes to).
+  Now `build/` (unanchored), verified by actually creating `app/build/x/y.txt`
+  and confirming `git check-ignore` catches it.
+- `.github/dependabot.yml` — weekly PRs for Gradle deps and the Actions used
+  in CI.
+- `.github/ISSUE_TEMPLATE/` (bug report, feature request) and
+  `.github/PULL_REQUEST_TEMPLATE.md`.
+- CI workflow (`android-ci.yml`) gained a static-analysis step
+  (`./gradlew lintDebug`) and a lint-report upload, alongside the existing
+  test run and APK assembly; job names clarified.
+- `AppLogger` (`utils/AppLogger.java`) — a one-tag wrapper around
+  `android.util.Log`; wired into `MainActivity`'s two previously-silent
+  `onError` handlers as a concrete example (the same pattern applies to the
+  ~10 other empty `onError(String message) { }` bodies elsewhere — not all
+  converted in this pass; see `TODO.md`).
+- `docs/SDLC.md` — the full lifecycle writeup and Definition of Done.
+- README: CI badge, Prerequisites, Setup, exact run/test commands; stale
+  "55 tests" reference corrected to 140.
 
 ## What works
 

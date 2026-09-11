@@ -20,6 +20,7 @@ import com.skillswap.app.fragments.ProfileFragment;
 import com.skillswap.app.fragments.RequestsFragment;
 import com.skillswap.app.models.RequestStatus;
 import com.skillswap.app.models.SwapRequest;
+import com.skillswap.app.utils.AppLogger;
 import com.skillswap.app.utils.NotificationUtils;
 
 /**
@@ -115,7 +116,11 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onError(String message) {
-                // silently ignore; notifications are best-effort
+                // Logged, not silently ignored: notifications staying best-effort is
+                // still the right UX call (a missed local notification isn't worth
+                // blocking the user over), but a persistent Firebase read failure
+                // here is worth being able to find in adb logcat.
+                AppLogger.w("MainActivity.listenIncoming", message);
             }
         });
 
@@ -139,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onError(String message) {
-                // silently ignore; notifications are best-effort
+                AppLogger.w("MainActivity.listenSent", message);
             }
         });
     }

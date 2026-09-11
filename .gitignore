@@ -3,7 +3,12 @@
 /local.properties
 /.idea/
 .DS_Store
-/build
+# Unanchored on purpose: matches build/ at any depth (root AND app/build/,
+# ledger-sql/build/, etc.) -- an anchored `/build` only ever matched the root
+# module's own output directory and silently let every submodule's build/
+# directory (app/build/, in particular, the one that actually gets written to
+# on every local build) go untracked-but-not-ignored. See docs/SDLC.md.
+build/
 /captures
 .externalNativeBuild
 .cxx
@@ -15,6 +20,10 @@ local.properties
 bin/
 gen/
 out/
+
+# Test/CI artifacts
+*.log
+.kotlin/
 
 # Firebase - do NOT commit the real config, use app/google-services.json.example instead
 app/google-services.json

@@ -1,5 +1,13 @@
 # SkillSwap
 
+[![Android CI](https://github.com/atreyamitra/SkillSwap/actions/workflows/android-ci.yml/badge.svg)](https://github.com/atreyamitra/SkillSwap/actions/workflows/android-ci.yml)
+
+The badge reflects the default branch's latest run of
+[`android-ci.yml`](.github/workflows/android-ci.yml) (checkout → JDK 17 →
+`testDebugUnitTest` → `lintDebug` → `assembleDebug`, all fail-on-error — see
+[`docs/SDLC.md`](docs/SDLC.md) §6). It won't show green until that workflow has
+actually run on `main`; this repo does not claim CI status it hasn't earned.
+
 A native Android app (Java, no Kotlin/Compose) where users list skills they can
 **teach** and skills they want to **learn**, get matched against other users by a
 transparent scoring algorithm, send/accept skill-swap requests, chat, schedule
@@ -50,6 +58,43 @@ Full design writeup: [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_ID
 Database design: [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md).
 Threat model: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
+## Prerequisites
+
+- JDK 17 (matches `app/build.gradle`'s `sourceCompatibility`/`targetCompatibility`
+  and the CI workflow's `setup-java` step)
+- Android Studio (Koala/2024.1+) or a standalone Android SDK with platform 34 +
+  build-tools, reachable over the network the first time you sync (see
+  `BUILD_NOTES.md` §1 if that sync fails in a sandboxed environment)
+- A Firebase project, for anything beyond compiling/testing (see "Setup" below)
+
+## Setup
+
+```bash
+git clone https://github.com/atreyamitra/SkillSwap.git
+cd SkillSwap
+cp app/google-services.json.example app/google-services.json  # placeholder; see below
+```
+
+To actually run the app (sign up, store data), replace that placeholder with a
+real `app/google-services.json` from a Firebase project where you've enabled
+Email/Password auth and created a Realtime Database with the rules in
+`firebase/database.rules.json` — full step-by-step in
+[`BUILD_NOTES.md`](BUILD_NOTES.md) §3. Compiling and running the test suite
+(next section) does **not** need a real Firebase project — the placeholder is
+enough.
+
+**Run it:**
+```bash
+./gradlew installDebug   # installs onto a connected device/emulator
+# then launch "SkillSwap" from the device's app drawer, or:
+adb shell am start -n com.skillswap.app/.activities.SplashActivity
+```
+
+**Test it:**
+```bash
+./gradlew testDebugUnitTest   # exact command CI runs; see docs/SDLC.md §6
+```
+
 ## Tech stack
 
 | Layer | Choice |
@@ -60,8 +105,10 @@ Threat model: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 | Data | Firebase Realtime Database (JSON tree, path-based security rules) |
 | Background work | WorkManager (session reminders) |
 | Location | FusedLocationProviderClient + Haversine distance |
-| Testing | JUnit 4 (local, pure-Java unit tests) |
-| CI | GitHub Actions (`./gradlew testDebugUnitTest`, `assembleDebug`) |
+| Testing | JUnit 4 (unit + H2-backed integration tests, no Robolectric) |
+| Static analysis | Android Lint (`./gradlew lintDebug`, in CI) |
+| CI | GitHub Actions (`.github/workflows/android-ci.yml` — test, lint, assemble) |
+| Dependency updates | Dependabot (`.github/dependabot.yml` — Gradle + Actions, weekly) |
 
 minSdk 24, target/compileSdk 34.
 
@@ -118,55 +165,41 @@ intersection. See `MatchUtilsTest.java` for the worked examples.
 
 ## Testing
 
-Local, dependency-free unit tests live under `app/src/test/java` — **55
-tests**, all pure JUnit 4 with no Android/Robolectric dependency:
+All automated tests live under `app/src/test/java` and run as plain JUnit 4 —
+**140 tests total**, no Android/Robolectric dependency, all runnable with the
+one command in "Setup" above:
 
-- `MatchUtilsTest` — 8 cases covering full/partial/zero overlap, case
-  insensitivity, duplicate skills, empty and null lists.
-- `DistanceUtilsTest` — Haversine distance against a known city-pair distance,
-  symmetry, antipodal points, and the "unset coordinates" sentinel.
-- `DatabasePathsTest` — conversation-id ordering, determinism, and null safety.
-- `RequestStatusTest` / `SessionStatusTest` — every legal and illegal state
-  transition in the two status enums.
-- `SwapRequestTest`, `SessionTest`, `ReviewTest`, `MessageTest`, `UserTest` —
-  constructor validation, `equals`/`hashCode` identity semantics, and (for
-  `User`) that the skill-list getters are genuinely unmodifiable.
+- **Unit tests**: `MatchUtilsTest`, `DistanceUtilsTest`, `DatabasePathsTest`,
+  `RequestStatusTest`/`SessionStatusTest`, `SwapRequestTest`/`SessionTest`/
+  `ReviewTest`/`MessageTest`/`UserTest` (domain model validation and
+  `equals`/`hashCode`), and the `ledger/` module's own unit tests (HMAC,
+  constant-time comparison, idempotency, and two deterministic concurrency
+  stress tests — see [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_IDEMPOTENCY.md)).
+- **Integration tests**: `ledger/sql/*Test` — run against a real, migrated H2
+  database (schema, constraints, transactions, and rollback all exercised for
+  real, not mocked) — see [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md).
 
-Run them with:
-
-```bash
-./gradlew testDebugUnitTest
-```
-
-(These were also verified in this repository's development sandbox — which
-has no Android SDK or network access to Google's Maven repo — by compiling
-and running them directly against plain JUnit 4 with `javac`/`java`, since
-none of the three classes under test have any Android framework dependency.
-See `AUDIT.md` for details.)
+(All of this was also verified directly in this repository's development
+sandbox — which has no Android SDK — by compiling and running the
+Android-framework-free subset with plain `javac`/`java`. See `AUDIT.md` for the
+exact commands and `docs/SDLC.md` §4 for the full testing picture.)
 
 There are currently no instrumented (on-device) or UI tests; see `TODO.md`.
 
-## Building
-
-You need Android Studio (or the Android SDK + a network connection to
-`dl.google.com`) and a Firebase project. Full step-by-step setup — creating the
-Firebase project, enabling email/password auth, applying the Realtime
-Database rules, and a suggested two-account demo flow — is in
-[`BUILD_NOTES.md`](BUILD_NOTES.md).
-
-```bash
-git clone <this repo>
-cd SkillSwap
-# place your own app/google-services.json (see app/google-services.json.example)
-./gradlew assembleDebug
-```
-
 ## Project docs
+
+- [`docs/SDLC.md`](docs/SDLC.md) — this project's lifecycle end to end
+  (requirements → design → implementation → testing → review → CI → release
+  concept → maintenance) and its Definition of Done.
 
 - [`BUILD_NOTES.md`](BUILD_NOTES.md) — architecture, Firebase schema & security
   rules, demo script, viva-style Q&A.
 - [`docs/ENGINEERING_DECISIONS.md`](docs/ENGINEERING_DECISIONS.md) — the
   domain model's design decisions and their tradeoffs.
+- [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_IDEMPOTENCY.md) /
+  [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md) /
+  [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) — the ledger module's design,
+  its SQL schema, and its threat model, in full.
 - [`AUDIT.md`](AUDIT.md) — an honest engineering self-review: scores, evidence,
   and what was fixed.
 - [`STATUS.md`](STATUS.md) — current state at a glance.
