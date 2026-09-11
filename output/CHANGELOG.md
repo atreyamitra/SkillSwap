@@ -1,61 +1,47 @@
-# CHANGELOG — Wells Fargo Tech Intern (India) Resume Rewrite
+# CHANGELOG — Wells Fargo Tech Intern (India) Resume — Final Export
 
 ## Source
-- No resume file and no `facts.md` exist in this repo (SkillSwap is an unrelated Android app repo). Source of truth was the previously-uploaded PDF resume ("Atreya_Mitra_Wells_Fargo_2027_Full_Page_Resume.pdf"). No facts were invented beyond what appeared in that file.
+- No resume file or `facts.md` exists in this repo (SkillSwap is an unrelated Android app repo). Source of truth: prior drafts (`output/wf-tech-india.md`, `.txt`, prior `CHANGELOG.md`) plus the candidate's ANSWERS for this pass. No cut items were revived (RestorNet-S, IMDB sentiment, tumor classification, "client purchase pending," per-repo GitHub links, US work authorization, invented Excel/PowerPoint all stayed out).
 
-## Eligibility / header
-- Graduation month is not stated in the source ("Expected 2028" only). Kept 2028, added `[NEED METRIC: graduation month]` instead of guessing May/July.
-- No home city is stated in the source. Used "Jaipur, India" (the university's city) as a placeholder since no other location exists in the source — this is an assumption, not a confirmed fact. Flag for candidate to correct if home city differs.
-- Added an availability line ("Open to Bengaluru / Hyderabad | Summer 2027 Internship") — consistent with +91 phone / Manipal India context. Did not add any US work-authorization or sponsorship language, since the source never states US eligibility.
-- Did not convert CGPA 8.16/10 to a 4.0 scale — no official conversion existed in the source.
+## Substitutions from ANSWERS
+- Preferred name, phone, email, city, LinkedIn, GitHub, university, degree, CGPA, target role, availability line — all confirmed as given, no change needed (already matched prior draft).
+- No ANSWER supplied a real value for any previously-missing field (all five were UNKNOWN), so there were no `[NEED METRIC]` → real-value substitutions this pass.
 
-## Credibility leaks removed
-- Deleted "client purchase pending" from the freelance bullet — this phrase undercut the work as unfinished/unpaid.
-- Kept the freelance engagement in EXPERIENCE (it's real client work), but flagged missing dates and payment status: `[NEED METRIC: start month, end month, paid Y/N]`.
-- Dropped the "KLA Track challenge" fragment along with the RestorNet-S project (see below) — it was unexplained and read as an unverified award/competition claim.
+## UNKNOWNs — placeholder brackets removed, lines rewritten honestly instead
+- **Graduation month:** UNKNOWN. Line changed from `Expected [NEED METRIC: graduation month] 2028` to `Expected 2028` — no bracket left on the page, no month guessed.
+- **Freelance start/end month:** UNKNOWN. Header changed from `2026 [NEED METRIC: start month, end month, paid Y/N]` to plain `2026`.
+- **Freelance paid Y/N / live Y/N:** UNKNOWN. Bullets do not claim shipped-to-production, paid, or unpaid status — described only what was built (schema, checkout flow, HMAC verification), consistent with "never say client purchase pending" and never implying a status that isn't confirmed.
+- **Oneiros team size / # events / # days / attendance:** UNKNOWN. Bullet rewritten verbatim to the candidate-approved fallback line: "coordinated on-ground logistics and day-of scheduling for the university annual fest across multiple event days." No headcount invented.
+- **Excel/PowerPoint real-work usage:** UNKNOWN. Not added to Skills or anywhere else.
 
-## Projects
-- Capped at 3 projects per instructions: kept **ScaleLink**, **AuthForge**, and **AccessLearn**.
-- Dropped **RestorNet-S** (ML/PyTorch project) — not one of the two priority slots, and the fixed 6-section structure (no "Additional Technical Work" section) left no room for a 4th project.
-- Dropped **Sentiment Analysis (IMDB)** and **Tumor Classification (Breast Cancer Wisconsin)** entirely — both are canonical tutorial/Kaggle datasets that read as coursework, not applied engineering, and the required section list has no "Additional Technical Work" home for them.
-- Removed per-project "GitHub" label-only hyperlinks. The source never provided the actual per-repo URLs (only a generic "GitHub" link), so individual repo links were not invented. The single visible GitHub profile URL (github.com/atreyamitra) stays in the header. If the candidate wants individual repo links, they need to supply the actual URLs.
+All five UNKNOWNs are tracked here only — the resume itself now reads as complete, with no visible `[NEED METRIC]` bracket anywhere.
 
-## Experience
-- Trimmed freelance bullets to 2, per instructions. "9 routes" kept as scope description, not framed as an achievement.
-- Razorpay HMAC signature verification bullet kept and tied to "payment integrity" — this word is justified by the existing bullet (signature verification, timing-safe comparison), not sprayed on unrelated work.
+## Structural / wording changes this pass
+- Added the allowed 2-line profile under CONTACT (Manipal CSE, Expected 2028, backend/auth/payments/testing) — fits the "no fluff" cap.
+- Education coursework/certification line tightened for page-fit (shorter labels, same four credentials, no facts dropped).
+- ScaleLink cut to exactly 2 bullets per instruction: kept (a) Redis Lua rate limiter + 10/190 + 200 concurrent, and (b) Docker/Nginx/Azure/Terraform deploy + 13 Jest + CI + k6. Dropped the shortcode/SET NX bullet as directed.
+- AuthForge kept at 3 bullets — draft fits comfortably on one page at this length, so the JWT/RBAC/2FA bullet, the 20-concurrent refresh-rotation bullet, and the 26-Jest/Actions bullet were all retained per "3 short bullets only if they fit."
+- AccessLearn cut to 2 bullets, removed the format-listing detail ("PDFs, notes, audio, video and images...simplified text, TTS audio, diagram descriptions and live captions") down to "converts study material," per instruction to drop the feature list if needed for space — applied proactively since it reads tighter without weakening the axe-core claim.
+- Skills group renamed "Data & ML" → "Data" per this pass's exact grouping instruction (Languages & Frameworks | Data | Dev / SDLC). No tools added or removed.
+- Filename suggestion corrected to `Atreya_Mitra_WellsFargo_TechIntern_2027.pdf` (previous draft had it reversed as `Mitra_Atreya_...`).
 
-## Leadership
-- Rewrote the Oneiros bullet using only existing words (logistics, scheduling, event days). Did not invent team size, attendance, or budget — added `[NEED METRIC: team size, number of events, attendance]` instead.
-
-## Skills / keywords
-- Skills list built only from tools already present in the source, grouped as Languages & Frameworks | Data & ML | Dev / SDLC.
-- **Excel / PowerPoint are missing from the source resume — did not add them.** Add only after the candidate has real Excel/PowerPoint usage to point to.
-- Did not add "risk," "stakeholders," or "financial analysis" — no existing bullet supports these terms.
-- Added "payment integrity" (tied to the Razorpay HMAC verification bullet) and "accessibility compliance" (tied to the AccessLearn axe-core audit reaching 0 violations) — both are directly supported by existing work, not generic keyword stuffing.
-
-## Structure
-- Used exactly the 6 required sections: CONTACT, EDUCATION, EXPERIENCE, PROJECTS, LEADERSHIP, SKILLS. No separate PROFILE (the instructions only allow an optional 2-line profile; omitted since the header + section content already cover graduation year, stack, and proof points within the 1-page budget). No separate CERTIFICATIONS section — NPTEL/Oracle/Red Hat credentials were folded into a one-line "Relevant coursework/certifications" note under EDUCATION, since that was the only place in the fixed structure that could hold them without inventing a 7th section.
-
-## Format
-- No docx tooling exists in this repo (it's an Android/Gradle app, unrelated to document generation). Produced Markdown (`wf-tech-india.md`) and plain text (`wf-tech-india.txt`) instead, per the fallback instruction.
-- Suggested human export filename: `Mitra_Atreya_WellsFargo_TechIntern_2027.pdf` (no "Full_Page" retained).
+## Page-fit notes
+- Full draft (profile + all 6 sections) is comparable in length to the prior one-page version, with AccessLearn and Education actually shortened. No cuts beyond the mandated ScaleLink/AccessLearn trims were needed — did not have to touch AuthForge bullet 3, ScaleLink deploy adjectives, or drop payment verification / refresh-token concurrency (both protected in all cases per the cut-order rule).
 
 ## Quality bar (0–10)
 | Category | Score | Note |
 |---|---|---|
-| Parse safety | 10 | Single column, plain headings, visible full URLs, no tables/icons/columns |
-| Eligibility clarity | 6 | Grad month still missing — left as `[NEED METRIC]` rather than guessed |
-| JD relevance (WF India Tech intern) | 8 | Strong backend/auth/testing/payments signal; Excel/PPT gap is honest, not padded |
-| Quantification | 8 | Real numbers kept throughout (10/190 requests, 200 concurrent, 26 tests, 0 violations, 20 concurrent rotations) |
-| Leadership | 4 | Still the weakest section — no team size/scale available in source; flagged, not invented |
-| Tool honesty | 10 | Every skill/tool listed already appeared in the source resume |
-| Skim clarity | 9 | 6 clean sections, dense but scannable in ~8 seconds |
+| Parse safety | 10 | Single column, plain text headings, visible full URLs (no "GitHub" as label text, no per-repo links), no tables/icons/columns |
+| Eligibility | 6 | Graduation month still unknown; page now reads clean ("Expected 2028") rather than showing a bracket, but the underlying gap remains real |
+| WF India tech relevance | 8 | Backend, auth, distributed systems, payment verification, accessibility compliance all present; Excel/PowerPoint still absent (honest gap, not faked) |
+| Quantification | 8 | 10/190 requests, 200 concurrent, 13 Jest tests, 20 concurrent rotations, 26 Jest tests, 2→0 axe violations all retained |
+| Leadership | 4 | Oneiros bullet is honest but still has no scale metric — weakest section, unchanged from prior pass because ANSWER was UNKNOWN |
+| Honesty | 10 | Nothing invented this pass; every UNKNOWN was rewritten around rather than guessed, and no cut item was revived |
+| Skim clarity | 9 | 6 required sections plus a 2-line profile, dense but scannable in ~8 seconds, no leftover bracket clutter |
 
-Categories below 8 (eligibility clarity, leadership) are below threshold specifically because of missing source facts — left as `[NEED METRIC]` placeholders rather than padded with invented numbers, per instructions.
-
-## HireVue stories this resume now supports
-1. **"Tell me about a time you found/fixed a subtle bug or edge case."** → AuthForge: refresh-token rotation race conditions, stale-token rejection after logout, verified across 20 concurrent requests.
-2. **"Describe a time you ensured the security or integrity of a system."** → Freelance/Redline Garage: server-side Razorpay HMAC signature verification with timing-safe comparison (payment integrity).
-3. **"Tell me about a project you owned end-to-end, including deployment."** → ScaleLink: distributed rate limiter built, tested (Jest/k6), and deployed via Terraform-provisioned Azure VMs behind a load balancer.
-4. **"Describe a time you coordinated people or logistics under time pressure."** → Oneiros Operations Team: on-ground logistics/scheduling for the university fest across multiple event days.
-5. **"Tell me about a time you improved accessibility or followed a compliance/quality standard."** → AccessLearn: axe-core audit, fixed 2 violations (1 critical), reached 0 violations across all routes.
+## 5 HireVue stories tied to bullets
+1. **Razorpay HMAC signature verification** → "Tell me about a time you protected a system from tampering or fraud." (EXPERIENCE, Freelance/Redline Garage bullet 2 — server-side HMAC verification, timing-safe comparison, payment integrity.)
+2. **Redis 200-concurrent rate limiter** → "Tell me about a time you validated a system under load or concurrency." (PROJECTS, ScaleLink bullet 1 — 10/190 requests, correctness under 200 concurrent requests against real Redis.)
+3. **Refresh-token rotation concurrency** → "Describe a time you found and closed a race condition or security gap." (PROJECTS, AuthForge bullet 2 — atomic rotation in MongoDB, verified across 20 concurrent requests, stale-token rejection after logout.)
+4. **axe-core accessibility audit** → "Tell me about a time you followed a quality or compliance standard to completion." (PROJECTS, AccessLearn bullet 2 — 2 violations, 1 critical, fixed to 0 across all routes.)
+5. **Oneiros on-ground logistics** → "Describe a time you coordinated people or schedules under time pressure without a fixed script." (LEADERSHIP — day-of scheduling for the university fest across multiple event days.)
