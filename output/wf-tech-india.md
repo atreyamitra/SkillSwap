@@ -1,0 +1,46 @@
+# CONTACT
+**Atreya Mitra**
++91 9330163735 | atreyamitra1234@gmail.com | Jaipur, India
+linkedin.com/in/atreya-mitra-715082241 | github.com/atreyamitra
+Open to Bengaluru / Hyderabad | Summer 2027 Internship
+
+# EDUCATION
+**Manipal University Jaipur** | Jaipur, Rajasthan
+B.Tech in Computer Science and Engineering | Expected [NEED METRIC: graduation month] 2028 | CGPA: 8.16/10
+Relevant coursework/certifications: NPTEL Design and Analysis of Algorithms (IIT Madras, 2026); Data Structures and Algorithms using Java (IIT Kharagpur, 2025); Database Design and Programming with SQL (Oracle Academy, 2025); Red Hat System Administration I & II (2026)
+
+# EXPERIENCE
+**Freelance Full-Stack Developer | Redline Garage | 2026** [NEED METRIC: start month, end month, paid Y/N]
+*TanStack Start, TypeScript, PostgreSQL (Supabase), Razorpay*
+- Built a retailer-commissioned e-commerce platform (9 routes) with a PostgreSQL product/order schema covering catalog, cart, checkout, and order tracking.
+- Implemented server-side Razorpay HMAC signature verification with timing-safe comparison for payment integrity, plus inventory stock counts and low-stock indicators.
+
+# PROJECTS
+**ScaleLink | Distributed URL Shortener and Rate Limiter**
+*Node.js, Express.js, Redis, Lua, Nginx, Docker Compose, Azure, Terraform, Jest, k6*
+- Built a distributed sliding-window rate limiter using atomic Redis Lua scripts and server-side timing; verified 10 allowed / 190 rejected requests across two Node.js processes and correctness under 200 concurrent requests against real Redis.
+- Implemented URL creation, redirects, and click tracking with atomic Redis SET NX reservations to block concurrent shortcode overwrites; added 13 Jest tests (mock + real Redis) and CI concurrency checks.
+- Deployed via Docker/Nginx multi-instance setup on Terraform-provisioned Azure VMs behind a load balancer with shared Redis, load-tested with k6.
+
+**AuthForge | Authentication and Access Control Service**
+*Node.js, Express.js, MongoDB, Redis, Docker, GitHub Actions, OpenAPI*
+- Built JWT authentication, bcrypt password hashing, RBAC, and TOTP two-factor auth with server-side signup-role enforcement and brute-force protection.
+- Made refresh-token rotation atomic in MongoDB with session-version invalidation on logout; verified one successful rotation across 20 concurrent requests and correct rejection of stale tokens after logout.
+- Covered refresh-token races and cookie-based logout with 26 Jest tests plus GitHub Actions integration checks against real MongoDB and Redis; documented REST APIs with OpenAPI/Swagger.
+
+**AccessLearn | Accessible Learning Platform**
+*Next.js 14, TypeScript, Tailwind CSS, axe-core*
+- Built a full-stack platform that converts study material (PDFs, notes, audio, video, images) into accessible formats for users with different access needs, with a modular conversion pipeline and keyboard-accessible UI.
+- Audited the app with axe-core, fixed 2 detected violations (1 critical), and reached 0 accessibility violations across all application routes — followed an accessibility compliance standard end-to-end.
+
+# LEADERSHIP
+**Operations Team, Oneiros — Manipal University Jaipur (2025)**
+- Coordinated on-ground logistics and scheduling for the university's annual fest across multiple event days [NEED METRIC: team size, number of events, attendance].
+
+# SKILLS
+**Languages & Frameworks:** Java, Python, JavaScript, TypeScript, SQL, Node.js, Express.js, React, Next.js
+**Data & ML:** PyTorch, PostgreSQL, MongoDB, Redis, Supabase
+**Dev / SDLC:** Docker, Docker Compose, Nginx, Azure, Terraform, Git, GitHub Actions, Jest, k6, Linux, CI/CD, OpenAPI/Swagger, unit & integration testing
+
+---
+Suggested export filename: `Mitra_Atreya_WellsFargo_TechIntern_2027.pdf`
