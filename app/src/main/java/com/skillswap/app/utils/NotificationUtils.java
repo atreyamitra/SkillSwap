@@ -68,7 +68,7 @@ public final class NotificationUtils {
     public static void notifyIncomingRequest(Context context, String fromName, String skill) {
         if (!hasPostPermission(context)) return;
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_REQUESTS)
-                .setSmallIcon(android.R.drawable.ic_dialog_email)
+                .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("New swap request")
                 .setContentText(fromName + " wants to swap for \"" + skill + "\"")
                 .setAutoCancel(true)
@@ -80,7 +80,7 @@ public final class NotificationUtils {
     public static void notifyRequestAccepted(Context context, String byName) {
         if (!hasPostPermission(context)) return;
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_REQUESTS)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("Request accepted!")
                 .setContentText(byName + " accepted your swap request")
                 .setAutoCancel(true)
@@ -92,7 +92,7 @@ public final class NotificationUtils {
     public static void notifyUpcomingSession(Context context, String withName, String dateText, String timeText) {
         if (!hasPostPermission(context)) return;
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_SESSIONS)
-                .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
+                .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("Upcoming session")
                 .setContentText("Your session with " + withName + " is on " + dateText + " at " + timeText)
                 .setAutoCancel(true)
