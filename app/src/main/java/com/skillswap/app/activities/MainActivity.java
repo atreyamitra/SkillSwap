@@ -18,6 +18,7 @@ import com.skillswap.app.fragments.ChatListFragment;
 import com.skillswap.app.fragments.HomeFragment;
 import com.skillswap.app.fragments.ProfileFragment;
 import com.skillswap.app.fragments.RequestsFragment;
+import com.skillswap.app.models.RequestStatus;
 import com.skillswap.app.models.SwapRequest;
 import com.skillswap.app.utils.NotificationUtils;
 
@@ -34,7 +35,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean firstIncomingSnapshot = true;
     private boolean firstSentSnapshot = true;
     private final java.util.Set<String> knownIncomingIds = new java.util.HashSet<>();
-    private final java.util.Map<String, String> knownSentStatuses = new java.util.HashMap<>();
+    private final java.util.Map<String, RequestStatus> knownSentStatuses = new java.util.HashMap<>();
 
     private final ActivityResultLauncher<String> notificationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
@@ -104,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
                 for (SwapRequest r : requests) {
                     if (!knownIncomingIds.contains(r.getRequestId())) {
                         knownIncomingIds.add(r.getRequestId());
-                        if (SwapRequest.STATUS_PENDING.equals(r.getStatus())) {
+                        if (r.getStatus() == RequestStatus.PENDING) {
                             NotificationUtils.notifyIncomingRequest(MainActivity.this,
                                     r.getSenderName(), r.getRequestedSkill());
                         }
@@ -127,10 +128,10 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
                 for (SwapRequest r : requests) {
-                    String previous = knownSentStatuses.get(r.getRequestId());
+                    RequestStatus previous = knownSentStatuses.get(r.getRequestId());
                     knownSentStatuses.put(r.getRequestId(), r.getStatus());
-                    if (previous != null && !previous.equals(r.getStatus())
-                            && SwapRequest.STATUS_ACCEPTED.equals(r.getStatus())) {
+                    if (previous != null && previous != r.getStatus()
+                            && r.getStatus() == RequestStatus.ACCEPTED) {
                         NotificationUtils.notifyRequestAccepted(MainActivity.this, r.getReceiverName());
                     }
                 }

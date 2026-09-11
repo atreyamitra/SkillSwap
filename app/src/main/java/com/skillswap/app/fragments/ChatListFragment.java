@@ -16,6 +16,7 @@ import com.skillswap.app.adapters.ChatListAdapter;
 import com.skillswap.app.databinding.FragmentChatListBinding;
 import com.skillswap.app.firebase.AuthManager;
 import com.skillswap.app.firebase.SwapRequestRepository;
+import com.skillswap.app.models.RequestStatus;
 import com.skillswap.app.models.SwapRequest;
 
 import java.util.ArrayList;
@@ -97,7 +98,7 @@ public class ChatListFragment extends Fragment {
     }
 
     private boolean isChatEligible(SwapRequest r) {
-        return SwapRequest.STATUS_ACCEPTED.equals(r.getStatus()) || SwapRequest.STATUS_COMPLETED.equals(r.getStatus());
+        return r.getStatus() == RequestStatus.ACCEPTED || r.getStatus() == RequestStatus.COMPLETED;
     }
 
     @Override

@@ -8,22 +8,86 @@ traffic, no CI history, and no external users. Where a score depends on things
 this sandbox cannot execute (a real Android/Gradle build), that limitation is
 stated explicitly rather than assumed away.
 
-Scores are **before → after** the changes made in this pass.
+This audit covers two passes: **Pass 1** (tests, CI, recruiter-facing docs —
+no production code touched) and **Pass 2** (domain-model hardening: enums,
+validation, exception hierarchy, equals/hashCode, encapsulation — see
+`docs/ENGINEERING_DECISIONS.md` for the full rationale). Scores below are
+**original → after Pass 1 → after Pass 2**.
 
-| # | Category | Before | After | ROI of the fix |
-|---|---|---|---|---|
-| 1 | Java engineering quality | 7 | 7 | — |
-| 2 | Object-oriented design | 7 | 7 | — |
-| 3 | Data structures / algorithms | 6 | 7 | HIGH (proved via tests) |
-| 4 | Reliability | 6 | 6 | MEDIUM (unchanged, see below) |
-| 5 | Testing | 1 | 6 | **HIGH** |
-| 6 | Concurrency correctness | 5 | 5 | LOW (out of scope this pass) |
-| 7 | Security awareness | 7 | 7 | — |
-| 8 | SQL / database engineering | 1 | 1 | not applicable (see below) |
-| 9 | SDLC / CI | 2 | 6 | **HIGH** |
-| 10 | Documentation | 6 | 9 | **HIGH** |
-| 11 | Recruiter readability | 3 | 8 | **HIGH** |
-| 12 | Interview discussability | 6 | 8 | HIGH |
+| # | Category | Original | After Pass 1 | After Pass 2 | ROI of Pass 2 |
+|---|---|---|---|---|---|
+| 1 | Java engineering quality | 7 | 7 | 8 | **HIGH** (enums, validation, equals/hashCode) |
+| 2 | Object-oriented design | 7 | 7 | 8 | HIGH (enum-at-boundary pattern, encapsulated skill lists) |
+| 3 | Data structures / algorithms | 6 | 7 | 7 | — (unchanged this pass) |
+| 4 | Reliability | 6 | 6 | 7 | MEDIUM (state-machine guard against stale-UI races) |
+| 5 | Testing | 1 | 6 | 7 | HIGH (55 tests now, up from 18; domain model fully covered) |
+| 6 | Concurrency correctness | 5 | 5 | 6 | MEDIUM (`canTransitionTo` guard; full fix still needs a server transaction) |
+| 7 | Security awareness | 7 | 7 | 7 | — (unchanged this pass) |
+| 8 | SQL / database engineering | 1 | 1 | 1 | not applicable (see §8, unchanged) |
+| 9 | SDLC / CI | 2 | 6 | 6 | — (unchanged this pass) |
+| 10 | Documentation | 6 | 9 | 9 | — (`ENGINEERING_DECISIONS.md` added, see below) |
+| 11 | Recruiter readability | 3 | 8 | 8 | — (unchanged this pass) |
+| 12 | Interview discussability | 6 | 8 | 9 | HIGH (a real state machine, a real exception hierarchy, real tradeoffs to defend) |
+
+---
+
+## Pass 2 — Domain-Model Hardening (this update)
+
+Full rationale for every decision below lives in
+`docs/ENGINEERING_DECISIONS.md` — this section is the scorecard, that file
+is the "why."
+
+**What changed:**
+- `RequestStatus`/`SessionStatus` enums (with a validated `canTransitionTo`
+  state machine) replaced `SwapRequest`/`Session`'s String status constants.
+  The wire format stays a `String` field (Firebase's reflection-based POJO
+  mapper bypasses every constructor), converted at the getter/setter
+  boundary — see `docs/ENGINEERING_DECISIONS.md` §1.
+- A 3-class exception hierarchy (`SkillSwapException` →
+  `InvalidStatusTransitionException`, `InvalidRatingException`) for the two
+  real business-rule violations; every other validation failure still uses
+  plain JDK exceptions (§3).
+- Validating constructors on `SwapRequest`, `Session`, `Review`, `Message`:
+  non-null checks plus real domain rules (no self-swaps, no self-reviews, no
+  self-messages, rating in [1,5], non-blank message text) (§5).
+- `equals`/`hashCode` on every model, keyed on database identity, with a
+  documented special case for `Message`'s not-yet-assigned `null` id (§6).
+- `User.getSkillsTeach()`/`getSkillsWant()` return unmodifiable views;
+  their setters defensively copy the input — confirmed safe by checking
+  every call site in the app was already read-only (§4).
+- A concurrency-correctness guard: `RequestsFragment`'s accept/reject/
+  complete handlers now check `canTransitionTo` before writing, so a stale
+  UI can no longer silently overwrite a terminal request status (§2).
+- 6 Android-dependent files updated mechanically to the new enum API
+  (`SwapRequestRepository`, `SessionRepository`, `RequestAdapter`,
+  `ChatListFragment`, `RequestsFragment`, `MainActivity`) — every changed
+  line traced by hand and listed in `docs/ENGINEERING_DECISIONS.md` §7.
+
+**What deliberately did NOT change, and why:**
+- Models are not fully immutable. `User.setUid` and `Message.setMessageId`
+  remain, because Firebase doesn't embed a node's own database key inside
+  its JSON payload — the repository layer sets it after the fact. Removing
+  those setters would mean a "wither" pattern rewrite of two repository
+  methods in files this sandbox cannot compile — judged not worth the risk
+  for the marginal gain (§4).
+- No `BigDecimal`/monetary-value work: this app has no monetary values
+  anywhere (it's a skill-barter app, not a marketplace). Reporting "N/A"
+  here rather than inventing a payments feature to have something to apply
+  it to.
+- The status-transition guard is client-side only; a true fix for the
+  two-devices-race scenario needs a Firebase security-rule or transaction
+  change against a live project, which this sandbox cannot test — tracked
+  as `TODO.md` #4a rather than shipped unverified.
+
+**Verification:** all 55 unit tests (18 from Pass 1 + 37 new: 7 for the two
+status enums, 24 for the 5 models' validation/equals/hashCode, plus the
+existing 18 held constant with zero regressions) compile and pass with
+`javac -Xlint:all -Werror` (zero warnings) and
+`java org.junit.runner.JUnitCore`. Exact commands are in
+`docs/ENGINEERING_DECISIONS.md` and reproduced at the end of this file.
+The 6 mechanically-edited Android files could not be compiled in this
+sandbox (no Android SDK) — see `STATUS.md`'s "Known unknowns" and
+`TODO.md` #0 for what to verify first on a machine with SDK access.
 
 ---
 

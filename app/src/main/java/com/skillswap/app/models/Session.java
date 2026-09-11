@@ -1,13 +1,16 @@
 package com.skillswap.app.models;
 
+import java.util.Objects;
+
 /**
  * A scheduled session for a swap, stored at sessions/{sessionId}.
+ *
+ * Status uses the same enum-at-the-boundary pattern as {@link SwapRequest}: the wire
+ * format is a plain String field for Firebase's reflection-based mapper, but
+ * {@link #getStatus()}/{@link #setStatus} only ever expose {@link SessionStatus}. See
+ * {@link SwapRequest}'s class doc for the full rationale.
  */
 public class Session {
-
-    public static final String STATUS_SCHEDULED = "SCHEDULED";
-    public static final String STATUS_COMPLETED = "COMPLETED";
-    public static final String STATUS_CANCELLED = "CANCELLED";
 
     private String sessionId;
     private String requestId;
@@ -19,19 +22,23 @@ public class Session {
     private String status;
     private long createdAt;
 
+    /** Required by Firebase for deserialization; do not call directly. */
     public Session() {
     }
 
     public Session(String sessionId, String requestId, String userA, String userB,
                     String dateText, String timeText, long dateTimeMillis) {
-        this.sessionId = sessionId;
-        this.requestId = requestId;
-        this.userA = userA;
-        this.userB = userB;
+        this.sessionId = Objects.requireNonNull(sessionId, "sessionId");
+        this.requestId = Objects.requireNonNull(requestId, "requestId");
+        this.userA = Objects.requireNonNull(userA, "userA");
+        this.userB = Objects.requireNonNull(userB, "userB");
+        if (userA.equals(userB)) {
+            throw new IllegalArgumentException("A session must have two distinct participants");
+        }
         this.dateText = dateText;
         this.timeText = timeText;
         this.dateTimeMillis = dateTimeMillis;
-        this.status = STATUS_SCHEDULED;
+        this.status = SessionStatus.SCHEDULED.name();
         this.createdAt = System.currentTimeMillis();
     }
 
@@ -56,9 +63,32 @@ public class Session {
     public long getDateTimeMillis() { return dateTimeMillis; }
     public void setDateTimeMillis(long dateTimeMillis) { this.dateTimeMillis = dateTimeMillis; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public SessionStatus getStatus() {
+        return status == null ? null : SessionStatus.valueOf(status);
+    }
+
+    public void setStatus(SessionStatus status) {
+        this.status = Objects.requireNonNull(status, "status").name();
+    }
 
     public long getCreatedAt() { return createdAt; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Session)) return false;
+        Session other = (Session) o;
+        return Objects.equals(sessionId, other.sessionId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(sessionId);
+    }
+
+    @Override
+    public String toString() {
+        return "Session{sessionId='" + sessionId + "', status=" + status + '}';
+    }
 }

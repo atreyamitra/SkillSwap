@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.skillswap.app.databinding.ItemRequestBinding;
+import com.skillswap.app.models.RequestStatus;
 import com.skillswap.app.models.SwapRequest;
 
 import java.util.ArrayList;
@@ -94,24 +95,25 @@ public class RequestAdapter extends RecyclerView.Adapter<RequestAdapter.ViewHold
             binding.tvOtherName.setText(otherName);
             binding.tvSkills.setText("Offers: " + request.getOfferedSkill()
                     + "  ⇄  Wants: " + request.getRequestedSkill());
-            binding.tvStatus.setText(request.getStatus());
+            RequestStatus status = request.getStatus();
+            binding.tvStatus.setText(status.name());
             binding.tvStatus.setBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(statusColor(request.getStatus())));
+                    android.content.res.ColorStateList.valueOf(statusColor(status)));
 
             binding.actionsLayout.setVisibility(View.GONE);
             binding.acceptedActionsLayout.setVisibility(View.GONE);
             binding.btnReview.setVisibility(View.GONE);
 
-            if (tab == TAB_INCOMING && SwapRequest.STATUS_PENDING.equals(request.getStatus())) {
+            if (tab == TAB_INCOMING && status == RequestStatus.PENDING) {
                 binding.actionsLayout.setVisibility(View.VISIBLE);
                 binding.btnAccept.setOnClickListener(v -> listener.onAccept(request));
                 binding.btnReject.setOnClickListener(v -> listener.onReject(request));
-            } else if (SwapRequest.STATUS_ACCEPTED.equals(request.getStatus())) {
+            } else if (status == RequestStatus.ACCEPTED) {
                 binding.acceptedActionsLayout.setVisibility(View.VISIBLE);
                 binding.btnChat.setOnClickListener(v -> listener.onChat(request));
                 binding.btnSchedule.setOnClickListener(v -> listener.onSchedule(request));
                 binding.btnComplete.setOnClickListener(v -> listener.onComplete(request));
-            } else if (SwapRequest.STATUS_COMPLETED.equals(request.getStatus())) {
+            } else if (status == RequestStatus.COMPLETED) {
                 boolean alreadyReviewed = alreadyReviewedRequestIds.contains(request.getRequestId());
                 if (!alreadyReviewed) {
                     binding.btnReview.setVisibility(View.VISIBLE);
@@ -120,13 +122,13 @@ public class RequestAdapter extends RecyclerView.Adapter<RequestAdapter.ViewHold
             }
         }
 
-        private int statusColor(String status) {
+        private int statusColor(RequestStatus status) {
             switch (status) {
-                case SwapRequest.STATUS_ACCEPTED:
+                case ACCEPTED:
                     return Color.parseColor("#2E7D32");
-                case SwapRequest.STATUS_REJECTED:
+                case REJECTED:
                     return Color.parseColor("#D32F2F");
-                case SwapRequest.STATUS_COMPLETED:
+                case COMPLETED:
                     return Color.parseColor("#1976D2");
                 default:
                     return Color.parseColor("#FFA000");

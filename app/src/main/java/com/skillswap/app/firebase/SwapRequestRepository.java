@@ -8,6 +8,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
+import com.skillswap.app.models.RequestStatus;
 import com.skillswap.app.models.SwapRequest;
 
 import java.util.ArrayList;
@@ -44,8 +45,8 @@ public class SwapRequestRepository {
                 .addOnFailureListener(e -> callback.onError(e.getMessage()));
     }
 
-    public void updateStatus(String requestId, String status, SimpleCallback callback) {
-        requestsRef.child(requestId).child("status").setValue(status)
+    public void updateStatus(String requestId, RequestStatus status, SimpleCallback callback) {
+        requestsRef.child(requestId).child("status").setValue(status.name())
                 .addOnSuccessListener(unused -> callback.onSuccess())
                 .addOnFailureListener(e -> callback.onError(e.getMessage()));
     }
@@ -62,8 +63,8 @@ public class SwapRequestRepository {
                     if (r == null) continue;
                     boolean samePair = (r.getSenderId().equals(senderId) && r.getReceiverId().equals(receiverId))
                             || (r.getSenderId().equals(receiverId) && r.getReceiverId().equals(senderId));
-                    boolean active = SwapRequest.STATUS_PENDING.equals(r.getStatus())
-                            || SwapRequest.STATUS_ACCEPTED.equals(r.getStatus());
+                    boolean active = r.getStatus() == RequestStatus.PENDING
+                            || r.getStatus() == RequestStatus.ACCEPTED;
                     if (samePair && active) {
                         exists = true;
                         break;

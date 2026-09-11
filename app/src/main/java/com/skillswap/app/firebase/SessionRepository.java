@@ -9,6 +9,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 import com.skillswap.app.models.Session;
+import com.skillswap.app.models.SessionStatus;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +46,7 @@ public class SessionRepository {
     }
 
     public void markCompleted(String sessionId, SimpleCallback callback) {
-        sessionsRef.child(sessionId).child("status").setValue(Session.STATUS_COMPLETED)
+        sessionsRef.child(sessionId).child("status").setValue(SessionStatus.COMPLETED.name())
                 .addOnSuccessListener(unused -> callback.onSuccess())
                 .addOnFailureListener(e -> callback.onError(e.getMessage()));
     }

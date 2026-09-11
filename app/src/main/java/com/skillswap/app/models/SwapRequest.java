@@ -1,15 +1,25 @@
 package com.skillswap.app.models;
 
+import java.util.Objects;
+
 /**
  * A skill-swap request stored at swapRequests/{requestId}.
- * status is one of: PENDING, ACCEPTED, REJECTED, COMPLETED (see Status constants).
+ *
+ * The wire format for status is still a plain String (Firebase's POJO mapper
+ * populates fields by reflection using whatever type they're declared as, and a raw
+ * String is the simplest, most defensively-storable representation) — but the public
+ * API only ever hands out and accepts a {@link RequestStatus}. Converting at the
+ * {@link #getStatus()}/{@link #setStatus} boundary means every caller in the app works
+ * with a type-safe, exhaustively-switchable enum while the on-disk shape never changes.
+ *
+ * Firebase requires the no-arg constructor for deserialization; it sets fields
+ * directly via reflection afterwards, bypassing every other constructor (and its
+ * validation) entirely. The validating constructor below therefore only protects
+ * objects the app itself builds (e.g. when sending a new request) — not ones read back
+ * from the database. That's a known, accepted gap for a demo app; see
+ * docs/ENGINEERING_DECISIONS.md.
  */
 public class SwapRequest {
-
-    public static final String STATUS_PENDING = "PENDING";
-    public static final String STATUS_ACCEPTED = "ACCEPTED";
-    public static final String STATUS_REJECTED = "REJECTED";
-    public static final String STATUS_COMPLETED = "COMPLETED";
 
     private String requestId;
     private String senderId;
@@ -21,19 +31,23 @@ public class SwapRequest {
     private String status;
     private long timestamp;
 
+    /** Required by Firebase for deserialization; do not call directly. */
     public SwapRequest() {
     }
 
     public SwapRequest(String requestId, String senderId, String receiverId, String senderName,
                         String receiverName, String offeredSkill, String requestedSkill) {
-        this.requestId = requestId;
-        this.senderId = senderId;
-        this.receiverId = receiverId;
+        this.requestId = Objects.requireNonNull(requestId, "requestId");
+        this.senderId = Objects.requireNonNull(senderId, "senderId");
+        this.receiverId = Objects.requireNonNull(receiverId, "receiverId");
+        if (senderId.equals(receiverId)) {
+            throw new IllegalArgumentException("A user cannot send a swap request to themselves");
+        }
         this.senderName = senderName;
         this.receiverName = receiverName;
-        this.offeredSkill = offeredSkill;
-        this.requestedSkill = requestedSkill;
-        this.status = STATUS_PENDING;
+        this.offeredSkill = Objects.requireNonNull(offeredSkill, "offeredSkill");
+        this.requestedSkill = Objects.requireNonNull(requestedSkill, "requestedSkill");
+        this.status = RequestStatus.PENDING.name();
         this.timestamp = System.currentTimeMillis();
     }
 
@@ -58,9 +72,39 @@ public class SwapRequest {
     public String getRequestedSkill() { return requestedSkill; }
     public void setRequestedSkill(String requestedSkill) { this.requestedSkill = requestedSkill; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    /** @return the current status, or {@code null} if this object was never populated. */
+    public RequestStatus getStatus() {
+        return status == null ? null : RequestStatus.valueOf(status);
+    }
+
+    public void setStatus(RequestStatus status) {
+        this.status = Objects.requireNonNull(status, "status").name();
+    }
 
     public long getTimestamp() { return timestamp; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+
+    /**
+     * Identity is the database key: two {@code SwapRequest} instances represent "the
+     * same request" exactly when they have the same {@code requestId}, regardless of
+     * whether one is a stale in-memory copy of a request whose other fields have since
+     * changed server-side.
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof SwapRequest)) return false;
+        SwapRequest other = (SwapRequest) o;
+        return Objects.equals(requestId, other.requestId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(requestId);
+    }
+
+    @Override
+    public String toString() {
+        return "SwapRequest{requestId='" + requestId + "', status=" + status + '}';
+    }
 }

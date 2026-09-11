@@ -43,8 +43,16 @@ com.skillswap.app/
                 EditProfile, ManageSkills, SessionSchedule, Review, Favorites)
   fragments/    4 bottom-nav destinations hosted inside MainActivity
   adapters/     RecyclerView.Adapter subclasses (ViewHolder pattern)
-  models/       Plain POJOs mirroring the database (User, SwapRequest,
-                Message, Session, Review)
+  models/       POJOs mirroring the database (User, SwapRequest, Message,
+                Session, Review), each with a validating constructor,
+                identity-based equals/hashCode, and — for SwapRequest and
+                Session — a status enum (RequestStatus/SessionStatus) that
+                encodes a real finite state machine instead of a bare
+                String constant
+  exception/    A small hierarchy (SkillSwapException and two subclasses)
+                for actual business-rule violations, as distinct from
+                generic bad-argument errors (which use plain
+                IllegalArgumentException/NullPointerException)
   firebase/     DatabasePaths (single source of truth for path strings),
                 AuthManager, and one thin repository per data type —
                 Activities/Fragments never call FirebaseDatabase directly
@@ -54,9 +62,13 @@ com.skillswap.app/
 
 Activities/Fragments are the view + controller layer; the `firebase/` package is
 a thin repository layer so database access and path strings live in one place
-instead of being copy-pasted across every screen; `utils/` holds
-side-effect-free logic (matching, distance, validation) kept deliberately free
-of Android framework dependencies so it can be unit tested without an emulator.
+instead of being copy-pasted across every screen; `models/` and `utils/` hold
+side-effect-free domain logic (matching, distance, validation, status
+transitions) kept deliberately free of Android framework dependencies so it
+can be unit tested without an emulator. The tradeoffs behind the domain model
+— why status fields are `enum`-typed in the API but `String`-typed on the
+wire, why models aren't *fully* immutable — are written up in
+[`docs/ENGINEERING_DECISIONS.md`](docs/ENGINEERING_DECISIONS.md).
 
 Full architecture notes, the Firebase schema, security rules explanation, and a
 20-question viva-prep Q&A are in [`BUILD_NOTES.md`](BUILD_NOTES.md).
@@ -76,13 +88,19 @@ intersection. See `MatchUtilsTest.java` for the worked examples.
 
 ## Testing
 
-Local, dependency-free unit tests live under `app/src/test/java`:
+Local, dependency-free unit tests live under `app/src/test/java` — **55
+tests**, all pure JUnit 4 with no Android/Robolectric dependency:
 
 - `MatchUtilsTest` — 8 cases covering full/partial/zero overlap, case
   insensitivity, duplicate skills, empty and null lists.
 - `DistanceUtilsTest` — Haversine distance against a known city-pair distance,
   symmetry, antipodal points, and the "unset coordinates" sentinel.
 - `DatabasePathsTest` — conversation-id ordering, determinism, and null safety.
+- `RequestStatusTest` / `SessionStatusTest` — every legal and illegal state
+  transition in the two status enums.
+- `SwapRequestTest`, `SessionTest`, `ReviewTest`, `MessageTest`, `UserTest` —
+  constructor validation, `equals`/`hashCode` identity semantics, and (for
+  `User`) that the skill-list getters are genuinely unmodifiable.
 
 Run them with:
 
@@ -117,6 +135,8 @@ cd SkillSwap
 
 - [`BUILD_NOTES.md`](BUILD_NOTES.md) — architecture, Firebase schema & security
   rules, demo script, viva-style Q&A.
+- [`docs/ENGINEERING_DECISIONS.md`](docs/ENGINEERING_DECISIONS.md) — the
+  domain model's design decisions and their tradeoffs.
 - [`AUDIT.md`](AUDIT.md) — an honest engineering self-review: scores, evidence,
   and what was fixed.
 - [`STATUS.md`](STATUS.md) — current state at a glance.

@@ -1,7 +1,9 @@
 package com.skillswap.app.models;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * User profile model stored at users/{uid} in Firebase Realtime Database.
@@ -23,16 +25,16 @@ public class User {
     private String avatarColor; // used to render an initials-avatar consistently
     private long createdAt;
 
+    /** Required by Firebase for deserialization; do not call directly. */
     public User() {
-        // Required empty constructor for Firebase
         skillsTeach = new ArrayList<>();
         skillsWant = new ArrayList<>();
     }
 
     public User(String uid, String name, String email) {
-        this.uid = uid;
-        this.name = name;
-        this.email = email;
+        this.uid = Objects.requireNonNull(uid, "uid");
+        this.name = Objects.requireNonNull(name, "name");
+        this.email = Objects.requireNonNull(email, "email");
         this.bio = "";
         this.location = "";
         this.lat = 0;
@@ -66,11 +68,29 @@ public class User {
     public double getLng() { return lng; }
     public void setLng(double lng) { this.lng = lng; }
 
-    public List<String> getSkillsTeach() { return skillsTeach; }
-    public void setSkillsTeach(List<String> skillsTeach) { this.skillsTeach = skillsTeach; }
+    /**
+     * Returns an unmodifiable view of this user's "can teach" skills. Callers that
+     * want to change a user's skills (see {@code ManageSkillsActivity}) already keep
+     * their own working copy and write it back via {@code setSkillsTeach} /
+     * {@code UserRepository.updateFields} rather than mutating this list in place —
+     * this method just makes that the only option, instead of an accident waiting to
+     * confuse a future caller who mutates the returned list and expects it to persist.
+     */
+    public List<String> getSkillsTeach() {
+        return skillsTeach == null ? Collections.emptyList() : Collections.unmodifiableList(skillsTeach);
+    }
 
-    public List<String> getSkillsWant() { return skillsWant; }
-    public void setSkillsWant(List<String> skillsWant) { this.skillsWant = skillsWant; }
+    public void setSkillsTeach(List<String> skillsTeach) {
+        this.skillsTeach = skillsTeach == null ? new ArrayList<>() : new ArrayList<>(skillsTeach);
+    }
+
+    public List<String> getSkillsWant() {
+        return skillsWant == null ? Collections.emptyList() : Collections.unmodifiableList(skillsWant);
+    }
+
+    public void setSkillsWant(List<String> skillsWant) {
+        this.skillsWant = skillsWant == null ? new ArrayList<>() : new ArrayList<>(skillsWant);
+    }
 
     public double getAvgRating() { return avgRating; }
     public void setAvgRating(double avgRating) { this.avgRating = avgRating; }
@@ -83,4 +103,22 @@ public class User {
 
     public long getCreatedAt() { return createdAt; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof User)) return false;
+        User other = (User) o;
+        return Objects.equals(uid, other.uid);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(uid);
+    }
+
+    @Override
+    public String toString() {
+        return "User{uid='" + uid + "', name='" + name + "'}";
+    }
 }

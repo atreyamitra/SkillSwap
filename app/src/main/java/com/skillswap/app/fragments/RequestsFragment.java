@@ -21,6 +21,7 @@ import com.skillswap.app.databinding.FragmentRequestsBinding;
 import com.skillswap.app.firebase.AuthManager;
 import com.skillswap.app.firebase.SessionRepository;
 import com.skillswap.app.firebase.SwapRequestRepository;
+import com.skillswap.app.models.RequestStatus;
 import com.skillswap.app.models.SwapRequest;
 
 import java.util.ArrayList;
@@ -57,7 +58,11 @@ public class RequestsFragment extends Fragment {
         adapter = new RequestAdapter(currentUid, new RequestAdapter.Listener() {
             @Override
             public void onAccept(SwapRequest request) {
-                requestRepository.updateStatus(request.getRequestId(), SwapRequest.STATUS_ACCEPTED,
+                if (!request.getStatus().canTransitionTo(RequestStatus.ACCEPTED)) {
+                    showMessage("This request can no longer be accepted.");
+                    return;
+                }
+                requestRepository.updateStatus(request.getRequestId(), RequestStatus.ACCEPTED,
                         new SwapRequestRepository.SimpleCallback() {
                             @Override
                             public void onSuccess() {
@@ -73,7 +78,11 @@ public class RequestsFragment extends Fragment {
 
             @Override
             public void onReject(SwapRequest request) {
-                requestRepository.updateStatus(request.getRequestId(), SwapRequest.STATUS_REJECTED,
+                if (!request.getStatus().canTransitionTo(RequestStatus.REJECTED)) {
+                    showMessage("This request can no longer be rejected.");
+                    return;
+                }
+                requestRepository.updateStatus(request.getRequestId(), RequestStatus.REJECTED,
                         new SwapRequestRepository.SimpleCallback() {
                             @Override
                             public void onSuccess() {
@@ -108,7 +117,11 @@ public class RequestsFragment extends Fragment {
 
             @Override
             public void onComplete(SwapRequest request) {
-                requestRepository.updateStatus(request.getRequestId(), SwapRequest.STATUS_COMPLETED,
+                if (!request.getStatus().canTransitionTo(RequestStatus.COMPLETED)) {
+                    showMessage("This request can no longer be marked complete.");
+                    return;
+                }
+                requestRepository.updateStatus(request.getRequestId(), RequestStatus.COMPLETED,
                         new SwapRequestRepository.SimpleCallback() {
                             @Override
                             public void onSuccess() {
@@ -218,12 +231,12 @@ public class RequestsFragment extends Fragment {
         } else {
             list = new ArrayList<>();
             for (SwapRequest r : incoming) {
-                if (SwapRequest.STATUS_ACCEPTED.equals(r.getStatus()) || SwapRequest.STATUS_COMPLETED.equals(r.getStatus())) {
+                if (r.getStatus() == RequestStatus.ACCEPTED || r.getStatus() == RequestStatus.COMPLETED) {
                     list.add(r);
                 }
             }
             for (SwapRequest r : sent) {
-                if (SwapRequest.STATUS_ACCEPTED.equals(r.getStatus()) || SwapRequest.STATUS_COMPLETED.equals(r.getStatus())) {
+                if (r.getStatus() == RequestStatus.ACCEPTED || r.getStatus() == RequestStatus.COMPLETED) {
                     list.add(r);
                 }
             }
