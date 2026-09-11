@@ -3,6 +3,23 @@
 Prioritized, in the order a next contributor should tackle them. Each item
 names why it's next and roughly how big it is.
 
+## Ledger module (`ledger/`) — see docs/INTEGRITY_AND_IDEMPOTENCY.md §7 for the full list
+
+- **Wire it into a real feature, or don't.** The ledger is currently standalone
+  (no caller in the app). The natural fit would be a future "session credits"
+  feature; until/unless that's built, this module is a portfolio-grade
+  subsystem in its own right, not a half-integrated feature. Don't force an
+  integration just to have one.
+- **Bounded idempotency-key retention.** `byIdempotencyKey` grows without limit;
+  a real deployment needs a TTL/eviction policy (e.g. evict keys older than
+  24h) so long-running processes don't leak memory.
+- **Persistence.** Everything is in-memory; a process restart loses the ledger.
+  Not attempted here because it would require picking a real storage layer,
+  which is a bigger, separate decision than this pass's scope.
+- **Multi-process idempotency.** Today's guarantees are per-JVM-instance only;
+  a distributed version needs a shared store (e.g. a database with a unique
+  constraint on idempotency key) instead of a local `ConcurrentHashMap`.
+
 ## Highest priority
 
 0. **Compile-verify the domain-hardening pass on a real Android SDK.** This

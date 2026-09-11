@@ -20,6 +20,27 @@ logic wired directly into `Activity` classes. This project's design choices
 (see `firebase/DatabasePaths.java`, `firebase/database.rules.json`, and
 `utils/MatchUtils.java`) were made with those concerns in mind.
 
+## Flagship engineering feature: an idempotent, tamper-evident transaction ledger
+
+`app/src/main/java/com/skillswap/app/ledger/` is a standalone, Android/Firebase-free
+Java module — an in-memory, thread-safe, idempotent transaction ledger with
+HMAC-based integrity verification. It exists to demonstrate, with 65 passing tests
+(including a deterministic 800-transaction concurrency stress test verified over 30
+consecutive runs with zero flakiness), a precise answer to: **what happens if two
+requests hit this service at exactly the same time?**
+
+- Duplicate/concurrent-duplicate request detection via idempotency keys
+  (`ConcurrentHashMap#computeIfAbsent`'s at-most-once-per-key guarantee)
+- Atomic updates and lost-update prevention (a single locked critical section for
+  balance checks + hash-chain append)
+- A tamper-evident HMAC-SHA256 hash chain, with constant-time comparison and
+  length-prefixed canonical encoding
+- An honest, scoped threat model — explicitly **not** claiming PCI DSS compliance,
+  "banking-grade" security, or any regulatory certification
+
+Full design writeup: [`docs/INTEGRITY_AND_IDEMPOTENCY.md`](docs/INTEGRITY_AND_IDEMPOTENCY.md).
+Threat model: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
+
 ## Tech stack
 
 | Layer | Choice |

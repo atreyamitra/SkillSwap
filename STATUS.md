@@ -1,7 +1,7 @@
 # Status
 
 Current state of the repository at a glance. Last updated 2026-09-11
-(domain-hardening pass).
+(integrity/idempotency/concurrency pass).
 
 ## What works
 
@@ -9,11 +9,22 @@ Current state of the repository at a glance. Last updated 2026-09-11
   development sandbox to run a real `./gradlew assembleDebug` — see
   `BUILD_NOTES.md` §1 and `AUDIT.md` §9 for exactly what that means and how
   correctness was checked instead).
-- The domain model (`models/`, `exception/`) and the pure-utility classes
-  (`utils/MatchUtils`, `utils/DistanceUtils`, `firebase/DatabasePaths`) are
-  unit tested and passing — **55/55 tests**, compiled clean with
-  `javac -Xlint:all -Werror` (zero warnings). See `AUDIT.md` §5 and
-  `docs/ENGINEERING_DECISIONS.md` for the exact verification method.
+- The domain model (`models/`, `exception/`), the pure-utility classes
+  (`utils/MatchUtils`, `utils/DistanceUtils`, `firebase/DatabasePaths`), and
+  the ledger module (`ledger/`, `ledger/crypto/`, `ledger/exception/`) are
+  unit tested and passing — **120/120 tests**, compiled clean with
+  `javac -Xlint:all -Werror` (zero warnings). The 12 concurrency-specific
+  tests were additionally run 30 times in fresh JVMs with zero failures to
+  rule out flakiness. See `AUDIT.md` §5/§6 and
+  `docs/ENGINEERING_DECISIONS.md`/`docs/INTEGRITY_AND_IDEMPOTENCY.md` for the
+  exact verification methods.
+- **Flagship feature:** `ledger/TransactionLedger` — an in-memory, thread-safe,
+  idempotent, HMAC-tamper-evident transaction ledger, with a full design
+  writeup (`docs/INTEGRITY_AND_IDEMPOTENCY.md`) and threat model
+  (`docs/THREAT_MODEL.md`). Standalone and Android/Firebase-free by design —
+  not currently wired into any SkillSwap screen (the app has no monetary
+  feature), so it is fully compiled and tested in this sandbox with no
+  Android SDK gap to flag.
 - Firebase security rules (`firebase/database.rules.json`) are written and
   documented but have not been deployed against a live Firebase project from
   this sandbox — deploying and exercising them requires a real Firebase

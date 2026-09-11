@@ -8,26 +8,63 @@ traffic, no CI history, and no external users. Where a score depends on things
 this sandbox cannot execute (a real Android/Gradle build), that limitation is
 stated explicitly rather than assumed away.
 
-This audit covers two passes: **Pass 1** (tests, CI, recruiter-facing docs —
-no production code touched) and **Pass 2** (domain-model hardening: enums,
+This audit covers three passes: **Pass 1** (tests, CI, recruiter-facing docs
+— no production code touched), **Pass 2** (domain-model hardening: enums,
 validation, exception hierarchy, equals/hashCode, encapsulation — see
-`docs/ENGINEERING_DECISIONS.md` for the full rationale). Scores below are
-**original → after Pass 1 → after Pass 2**.
+`docs/ENGINEERING_DECISIONS.md`), and **Pass 3** (a standalone flagship
+integrity/idempotency/concurrency module, `ledger/` — see
+`docs/INTEGRITY_AND_IDEMPOTENCY.md` and `docs/THREAT_MODEL.md`). Scores below
+are **original → Pass 1 → Pass 2 → Pass 3**.
 
-| # | Category | Original | After Pass 1 | After Pass 2 | ROI of Pass 2 |
-|---|---|---|---|---|---|
-| 1 | Java engineering quality | 7 | 7 | 8 | **HIGH** (enums, validation, equals/hashCode) |
-| 2 | Object-oriented design | 7 | 7 | 8 | HIGH (enum-at-boundary pattern, encapsulated skill lists) |
-| 3 | Data structures / algorithms | 6 | 7 | 7 | — (unchanged this pass) |
-| 4 | Reliability | 6 | 6 | 7 | MEDIUM (state-machine guard against stale-UI races) |
-| 5 | Testing | 1 | 6 | 7 | HIGH (55 tests now, up from 18; domain model fully covered) |
-| 6 | Concurrency correctness | 5 | 5 | 6 | MEDIUM (`canTransitionTo` guard; full fix still needs a server transaction) |
-| 7 | Security awareness | 7 | 7 | 7 | — (unchanged this pass) |
-| 8 | SQL / database engineering | 1 | 1 | 1 | not applicable (see §8, unchanged) |
-| 9 | SDLC / CI | 2 | 6 | 6 | — (unchanged this pass) |
-| 10 | Documentation | 6 | 9 | 9 | — (`ENGINEERING_DECISIONS.md` added, see below) |
-| 11 | Recruiter readability | 3 | 8 | 8 | — (unchanged this pass) |
-| 12 | Interview discussability | 6 | 8 | 9 | HIGH (a real state machine, a real exception hierarchy, real tradeoffs to defend) |
+| # | Category | Original | Pass 1 | Pass 2 | Pass 3 | ROI of Pass 3 |
+|---|---|---|---|---|---|---|
+| 1 | Java engineering quality | 7 | 7 | 8 | 8 | — (unchanged this pass) |
+| 2 | Object-oriented design | 7 | 7 | 8 | 8 | — (unchanged this pass) |
+| 3 | Data structures / algorithms | 6 | 7 | 7 | 8 | HIGH (hash-chained log, canonical byte encoding) |
+| 4 | Reliability | 6 | 6 | 7 | 8 | HIGH (atomic commit-or-nothing, proven under contention) |
+| 5 | Testing | 1 | 6 | 7 | 9 | **HIGH** (120 tests now, up from 55; a real, non-flaky concurrency stress test) |
+| 6 | Concurrency correctness | 5 | 5 | 6 | 9 | **HIGH** (per-key + global-lock model, proven with a deterministic 800-tx stress test, 30/30 clean runs) |
+| 7 | Security awareness | 7 | 7 | 7 | 8 | HIGH (HMAC integrity, constant-time comparison, a real threat model with explicit non-claims) |
+| 8 | SQL / database engineering | 1 | 1 | 1 | 1 | not applicable (unchanged — see §8, original) |
+| 9 | SDLC / CI | 2 | 6 | 6 | 6 | — (unchanged this pass) |
+| 10 | Documentation | 6 | 9 | 9 | 9 | — (already 9; `INTEGRITY_AND_IDEMPOTENCY.md`/`THREAT_MODEL.md` added, see below) |
+| 11 | Recruiter readability | 3 | 8 | 8 | 8 | — (unchanged this pass) |
+| 12 | Interview discussability | 6 | 8 | 9 | 10 | **HIGH** (a precise, code-backed answer to "what happens if two requests hit this at the same time," with an honest threat model) |
+
+---
+
+## Pass 3 — Integrity, Idempotency & Concurrency (`ledger/`)
+
+Full rationale in `docs/INTEGRITY_AND_IDEMPOTENCY.md`; realistic adversary
+analysis and explicit non-claims (no PCI DSS, no "banking-grade," no Wells
+Fargo affiliation, no regulatory certification) in `docs/THREAT_MODEL.md`.
+This section is the scorecard only.
+
+**What was added:** a new, standalone module,
+`app/src/main/java/com/skillswap/app/ledger/` — `TransactionLedger` (the
+concurrent, idempotent engine), `TransactionRequest`/`LedgerEntry`/
+`TransactionResult`/`IntegrityReport` (value objects), `LedgerIntegrityVerifier`
+(pure hash-chain verification), `ledger/crypto/` (`HmacUtil`,
+`ConstantTimeCompare`), and `ledger/exception/` (a 4-class hierarchy:
+`LedgerException` → `InvalidTransactionException`,
+`IdempotencyKeyConflictException`, `InsufficientFundsException`,
+`IntegrityViolationException`). 65 new tests (120 total repo-wide), all
+compiling clean under `javac -Xlint:all -Werror` and passing.
+
+**Why this module has zero Android-SDK-verification gap, unlike Pass 2's
+enum work:** it has no Android or Firebase import anywhere. Every line of it
+— including the concurrency stress test — was compiled and executed for
+real in this sandbox with plain `javac`/`java`, not traced by hand. The
+concurrency-specific test classes were additionally run 30 times in fresh
+JVMs (varying thread scheduling each time) with zero failures, specifically
+to rule out the flakiness that concurrency tests are prone to.
+
+**What this module deliberately is not:** wired into any SkillSwap screen
+(the app has no monetary feature to attach it to — see
+`docs/INTEGRITY_AND_IDEMPOTENCY.md`'s opening paragraph), a distributed or
+persistent system (in-memory, single-JVM only), or a claim of any
+certification/compliance status (see `docs/THREAT_MODEL.md` §0). These are
+named as limitations, not hidden.
 
 ---
 
