@@ -105,10 +105,9 @@ cd SkillSwap
 
 - **Via Gradle** (needs Android SDK, since it's built as part of the app module):
   `./gradlew testDebugUnitTest`
-- **Standalone** (what this project's own CI-equivalent sandbox verification
-  used — no Android SDK required): compile `ledger/**/*.java` with `javac`
-  against JUnit + H2 on the classpath and run with `java
-  org.junit.runner.JUnitCore` — exact commands in `AUDIT.md`.
+- **Standalone** (no Android SDK required): compile `ledger/**/*.java` with
+  `javac` against JUnit + H2 on the classpath and run with
+  `java org.junit.runner.JUnitCore` — see `STATUS.md`.
 
 ## Running tests
 
@@ -151,6 +150,7 @@ Full threat model, adversaries considered, and explicit non-claims:
 - [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) — adversaries, guarantees, explicit non-claims
 - [`docs/ENGINEERING_DECISIONS.md`](docs/ENGINEERING_DECISIONS.md) — domain-model tradeoffs
 - [`docs/SDLC.md`](docs/SDLC.md) — this project's build/test/CI lifecycle and Definition of Done
+- [`docs/INTERVIEW_GUIDE.md`](docs/INTERVIEW_GUIDE.md) — how I'd explain this project and its tradeoffs out loud
 
 ## Project structure
 

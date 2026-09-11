@@ -57,7 +57,7 @@ than that isn't, yet).
 - **Deterministic concurrency tests**: `TransactionLedgerConcurrencyTest` and
   `JdbcLedgerStoreConcurrencyTest` assert only final-state invariants that hold
   under every thread interleaving (see their Javadoc) — verified flake-free over
-  30 consecutive fresh-JVM runs during development (`AUDIT.md` §5-7).
+  30 consecutive fresh-JVM runs during development (see `STATUS.md`).
 - **No instrumented/UI tests yet** — `androidTestImplementation` dependencies are
   declared in `app/build.gradle` but no test uses them; tracked honestly in
   `TODO.md`, not hidden.
@@ -68,10 +68,9 @@ matters have a test," judged case by case in review.
 
 ## 5. Code review
 
-This repository's actual review history is a single-developer's own passes
-(`AUDIT.md`'s four dated passes, each stating what changed and why) rather than
-a second reviewer's approval — the honest state for a solo project. The
-infrastructure for real review exists for when that changes:
+This repository's actual review history is a single developer's own
+self-review, not a second reviewer's approval — the honest state for a solo
+project. The infrastructure for real review exists for when that changes:
 `.github/PULL_REQUEST_TEMPLATE.md` asks every PR to state what changed, how it
 was tested, and the rollback plan; `.github/ISSUE_TEMPLATE/` gives bug reports
 and feature requests a consistent shape.
@@ -136,11 +135,11 @@ a shipping product — see `README.md`'s opening paragraph and
 
 - `TODO.md` — prioritized, dated, with the reasoning for each item's priority.
 - `STATUS.md` — a point-in-time snapshot of what's verified vs. not, updated at
-  the end of each engineering pass.
+  the end of each round of work.
 - `HANDOFF.md` — what a new contributor (or a future version of the same one)
-  needs to know before touching the code, including this sandbox's specific
-  build limitations (no Android SDK, no Docker daemon — see
-  `BUILD_NOTES.md` §1 and `docs/DATABASE_DESIGN.md`).
+  needs to know before touching the code, including the current build
+  limitations (Android app not yet compiled locally, no Docker daemon
+  available for Testcontainers — see `BUILD_NOTES.md` and `docs/DATABASE_DESIGN.md`).
 - Dependency updates: `.github/dependabot.yml` opens weekly PRs for both Gradle
   dependencies and the GitHub Actions used in CI, so version drift is
   surfaced automatically instead of discovered during an unrelated change.
@@ -151,14 +150,11 @@ a shipping product — see `README.md`'s opening paragraph and
 
 A change to this repository is done when:
 
-1. **It compiles.** For the Android app: `./gradlew assembleDebug` (or, in an
-   environment without Android SDK access, every touched file has been traced
-   by hand for type-correctness against its imports — see `AUDIT.md`'s passes
-   for exactly this discipline applied repeatedly). For the `ledger`/`ledger/sql`
-   modules (no Android dependency): `javac -Xlint:all -Werror` against the
-   actual sources, not just "looks right."
-2. **It has a test**, or an honest note in `TODO.md`/`AUDIT.md` explaining why
-   not yet. A change to behavior with no test anywhere is not done.
+1. **It compiles.** For the Android app: `./gradlew assembleDebug`. For the
+   `ledger`/`ledger/sql` modules (no Android dependency): `javac -Xlint:all
+   -Werror` against the actual sources, not just "looks right."
+2. **It has a test**, or an honest note in `TODO.md`/`STATUS.md` explaining
+   why not yet. A change to behavior with no test anywhere is not done.
 3. **`./gradlew testDebugUnitTest` passes**, including anything newly added —
    checked locally before pushing, not left for CI to discover first.
 4. **Concurrency-sensitive changes have a deterministic test** — assertions on

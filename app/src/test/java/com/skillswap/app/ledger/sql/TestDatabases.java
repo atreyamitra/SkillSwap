@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Test-only helper: a fresh, migrated, uniquely-named in-memory H2 database per call,
  * so tests never share state with each other even when run in the same JVM.
  *
- * <p><b>Why H2, not real PostgreSQL or Testcontainers:</b> this sandbox has no
+ * <p><b>Why H2, not real PostgreSQL or Testcontainers:</b> this environment has no
  * running Docker daemon (Testcontainers needs one) and no network path to a real
  * Postgres server. H2 is a pure-JVM embedded database with no external process
  * required, which is why it's used here — the same honest tradeoff this project has

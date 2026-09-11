@@ -24,7 +24,7 @@ deserializes POJOs by reflection directly into whatever type a field is
 declared as, using the no-arg constructor — it never calls the other
 constructors or any setter you write. If the model's `status` field were
 literally typed `RequestStatus`, correctness would depend on Firebase's
-enum-mapping behavior, which this sandbox has no way to exercise against a
+enum-mapping behavior, which this environment has no way to exercise against a
 real database. Instead, the field stays a plain `String status;` internally
 (exactly the format already being written to the database), and the
 `RequestStatus`/`SessionStatus` conversion happens only inside the getter and
@@ -50,8 +50,8 @@ a bug elsewhere) would still deserialize; `getStatus()` would then throw
 `IllegalArgumentException` from `RequestStatus.valueOf(...)` when read. That
 failure mode is a **known, accepted gap** — closing it fully would mean a
 custom `ValueEventListener` that parses each field defensively instead of
-letting Firebase's generic mapper do it, which is a real, larger change this
-pass didn't make.
+letting Firebase's generic mapper do it, which is a real, larger change not
+made here.
 
 ## 2. A validated finite state machine, not just an enum
 
@@ -102,7 +102,7 @@ other validation failure here is a generic "this argument was bad," which is
 exactly what `IllegalArgumentException` is for — inventing
 `SelfSwapException`, `SelfMessageException`, `SelfReviewException`, etc.
 would be three barely-distinguishable one-off classes with no shared
-handling anywhere, which is the "unnecessary abstraction" this pass was
+handling anywhere, which is the "unnecessary abstraction" this project was
 explicitly asked to avoid. The dividing line — *domain rule vs. programmer
 error* — is the same one most production Java codebases draw, and it's a
 clean answer to "why is this a custom exception but that isn't?"
@@ -121,7 +121,7 @@ setters, one all-args constructor). `SwapRequest`, `Session`, `Review`,
 
 **Why, given the brief explicitly asked for immutability where
 appropriate:** two setters are load-bearing in ways a fully immutable design
-would have to work around blind, in files this sandbox cannot compile
+would have to work around blind, in files this environment cannot compile
 (`UserRepository.getUser`/`getAllUsers` call `user.setUid(snapshot.getKey())`
 because Firebase doesn't store a node's own key inside its JSON payload;
 `ChatRepository.sendMessage` calls `message.setMessageId(key)` for the same
@@ -198,7 +198,7 @@ each other (`null == null` are equal ids), which is wrong — they are two
 distinct, not-yet-persisted things that happen to not have an identity yet.
 `MessageTest.twoUnsentMessagesAreNotEqualEvenWithSameContent` pins this down.
 
-## 7. What was in scope for this pass, and what wasn't
+## 7. What was in scope for this project, and what wasn't
 
 Everything above touches: `models/` (5 files), a new `exception/` package (3
 files), and the narrowest possible set of call sites needed to keep the
@@ -207,10 +207,10 @@ enum change compiling in the files that reference status
 `ChatListFragment`, `RequestsFragment`, `MainActivity` — 6 files, all
 mechanical `String` constant → enum swaps, traced line-by-line and listed in
 `STATUS.md`). Deliberately **not** touched: `ValidationUtils` (Android
-framework dependency, already flagged in `AUDIT.md` #1), `PrefsManager`,
+framework dependency), `PrefsManager`,
 `NotificationUtils`, `LocationUtils`, any layout XML, and the repository
 classes' internal `ValueEventListener` boilerplate (real duplication, noted
-in `AUDIT.md` #2 and `TODO.md` #4, left alone because refactoring six
+in `TODO.md`, left alone because refactoring six
 call sites without a compiler to check them against is a bigger bet than
-this pass was willing to make blind). "Smallest change with the largest
+this project was willing to make blind). "Smallest change with the largest
 truthful improvement" cuts both ways: it's also a reason to stop.

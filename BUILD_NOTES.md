@@ -9,84 +9,29 @@ Components · Firebase Auth + Realtime Database.
 
 ---
 
-## 1. Why this repo was NOT built with `./gradlew assembleDebug` here
+## 1. Build status
 
-This project was generated inside a sandboxed container that has:
-- **No Android SDK installed** (no `platforms;android-34`, no build-tools, no `ANDROID_HOME`).
-- **No network access to `dl.google.com`** (Google's Maven repository, which hosts the
-  Android Gradle Plugin and all AndroidX/Firebase/Material artifacts) or to the Android
-  SDK manager endpoints. Outbound traffic in this container goes through an allowlist
-  proxy that blocks these hosts by policy.
+The `ledger`/`ledger/sql` module (see `README.md`) has no Android dependency
+and is compiled and tested directly with `javac`/JUnit — no Android SDK
+needed for that part.
 
-We verified this directly: `gradle wrapper` succeeded (gradle itself, and even the
-Gradle **distribution zip** from `services.gradle.org`, downloaded fine), but running
-`./gradlew help` immediately failed with:
+The Android app itself has **not** been compiled with a full Android Studio
+setup while writing this. Every file was checked by hand instead: every
+`R.id`/`R.layout`/`R.string`/`R.color`/`R.drawable` reference against its
+declared resource, every `ViewBinding` field access against the layout it's
+generated from, every `Activity` against its `AndroidManifest.xml` entry, and
+every Firebase path string against `DatabasePaths` (no root path is
+hardcoded anywhere else). No mismatches found, but this is not a substitute
+for a real compile — see `STATUS.md` for exactly what's verified and what
+isn't, and run `./gradlew assembleDebug` on a machine with the SDK installed
+before trusting the app builds.
 
-```
-Plugin [id: 'com.android.application', version: '8.2.2', apply: false] was not found
-...
-could not resolve plugin artifact 'com.android.application:com.android.application.gradle.plugin:8.2.2'
-Searched in the following repositories: Google, MavenRepo, Gradle Central Plugin Repository
-```
-
-That confirms the Android Gradle Plugin (and, transitively, every AndroidX/Material/
-Firebase dependency, and the Android SDK platform itself) cannot be fetched from this
-container. There is no way to produce a real, compiled APK here.
-
-**On your own machine with Android Studio, none of this applies** — Android Studio's
-Gradle sync will download the AGP, Gradle distribution, SDK platform 34, build-tools,
-and every library dependency automatically the first time you open the project (as
-long as you have normal internet access), and `./gradlew assembleDebug` will work.
-
-## 2. What was verified instead: a rigorous static consistency audit
-
-Since a real compile wasn't possible, every file was checked by hand and with two
-purpose-built Python scripts (kept in this session's scratch directory, not part of the
-repo) that:
-
-1. **Parsed every `.xml` file** in the project to confirm it is well-formed (no
-   unclosed tags, no malformed attributes) — all 21 layout files + manifest + values +
-   menu + xml resources passed.
-2. **Extracted every `R.id.*`, `R.layout.*`, `R.string.*`, `R.color.*`, `R.drawable.*`,
-   `R.menu.*` reference** from all 40 Java files and all XML files, and cross-checked
-   each one against the actual declared resources (ids declared via `android:id="@+id/…"`
-   in layouts/menus, `<string name="…">`, `<color name="…">`, drawable file names, etc).
-   Zero missing references after two rounds of fixes (the first pass flagged Android
-   *framework* resources like `android.R.drawable.ic_dialog_email` and
-   `android.R.layout.simple_list_item_1` as false positives — those are real platform
-   resources, not app resources, and are fine to reference as-is).
-3. **Cross-checked every `ViewBinding` field access** (`binding.someId`,
-   `binding.toolbarInclude.someNestedId`) against the actual `android:id` values
-   declared in the layout XML that each `XyzBinding` class is generated from
-   (ViewBinding's naming convention: `ActivityLoginBinding` ⇄ `activity_login.xml`,
-   `ItemUserCardBinding` ⇄ `item_user_card.xml`, etc, and field names are the camelCase
-   id exactly as written since this project already uses camelCase ids like `etEmail`).
-   Zero mismatches.
-4. **Checked every `Activity` subclass has a matching `<activity android:name="…">`
-   entry in `AndroidManifest.xml`** with the correct package-relative name. All 11
-   activities (Splash, Login, Register, Main, UserDetail, Chat, EditProfile,
-   ManageSkills, SessionSchedule, Review, Favorites) are declared.
-5. **Checked every Firebase Realtime Database root path** (`users`, `swapRequests`,
-   `messages`, `sessions`, `reviews`, `favorites`) is referenced **only** via the
-   `DatabasePaths` constants class, nowhere else as a raw string literal — grepped every
-   `.child(...)` and `.getReference(...)` call across the `firebase/` package and
-   confirmed no root-path string is hardcoded outside `DatabasePaths.java`.
-6. **Brace/paren balance check** on every `.java` file (simple sanity check for
-   copy-paste errors) — all balanced.
-
-No errors remained after fixes. This is not a substitute for a real compiler pass —
-type errors, missing-method errors, and Gradle dependency-resolution issues can only be
-caught by `javac`/`d8`/AGP itself — but it eliminates the class of error explicitly
-called out for this exercise (dangling resource references, id typos, unregistered
-activities, and inconsistent database path strings).
-
-## 3. Opening and building the project in Android Studio
+## 2. Opening and building the project in Android Studio
 
 1. Install **Android Studio** (Koala/2024.1+ recommended) with the Android SDK for API
    34 (SDK Manager will offer this automatically).
-2. `git clone` this repo (already on branch `claude/brave-lamport-xz7d4t`) and choose
-   **Open** in Android Studio, pointing at the repo root (the folder containing
-   `settings.gradle`).
+2. `git clone` this repo and choose **Open** in Android Studio, pointing at
+   the repo root (the folder containing `settings.gradle`).
 3. Let Gradle sync finish — first sync downloads AGP 8.2.2, Gradle 8.14.3 (wrapper is
    already checked in under `gradle/wrapper/`), and every AndroidX/Material/Firebase
    dependency. This requires normal internet access, which your machine has.
@@ -102,13 +47,13 @@ activities, and inconsistent database path strings).
    4. In the Firebase console, enable **Authentication → Sign-in method → Email/Password**.
    5. In the Firebase console, create a **Realtime Database** (not Firestore) in test
       mode initially, then go to the **Rules** tab and paste the contents of
-      `firebase/database.rules.json` from this repo (see section 4 below for what the
+      `firebase/database.rules.json` from this repo (see section 3 below for what the
       rules do), then Publish.
 5. Run the app on an emulator (API 24+) or physical device via the ▶ Run button, or
    build an APK via **Build → Build Bundle(s) / APK(s) → Build APK(s)** — the resulting
    `app-debug.apk` will be under `app/build/outputs/apk/debug/`.
 
-## 4. Firebase Realtime Database structure & security rules
+## 3. Firebase Realtime Database structure & security rules
 
 ```
 users/{uid}                              -> User profile (name, bio, skills, rating…)
@@ -147,7 +92,7 @@ in plain terms:
 - **`favorites/{uid}/…`**: fully private — only the owning uid can read or write their
   own favorites list.
 
-## 5. Notifications — what's real here vs. what would need a backend
+## 4. Notifications — what's real here vs. what would need a backend
 
 `NotificationUtils` creates two real Android notification channels (`channel_requests`,
 `channel_sessions`) and posts genuine local notifications when:
@@ -168,7 +113,7 @@ is intentionally out of scope for a student mini-project demo — the above Work
 foreground-listener approach is the standard "good enough" pattern taught for this kind
 of assignment, and is honestly labelled here rather than faked.
 
-## 6. Location — what's real here vs. limits
+## 5. Location — what's real here vs. limits
 
 `LocationUtils` wraps `FusedLocationProviderClient` (play-services-location) and is used
 from `EditProfileActivity` ("Use my current location" button, behind a runtime
@@ -178,7 +123,7 @@ permission request for `ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION`) and from
 the location is simply unavailable (no last-known fix yet), the callback's
 `onUnavailable()` path runs and nothing crashes — the UI just omits distance info.
 
-## 7. What the matching algorithm does (for the viva)
+## 6. What the matching algorithm does (for the viva)
 
 See `app/src/main/java/com/skillswap/app/utils/MatchUtils.java` — fully commented. In
 short: the 0-100% score is the sum of two independent halves, each worth up to 50

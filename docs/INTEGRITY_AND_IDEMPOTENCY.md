@@ -10,7 +10,7 @@ claim, the question this document is written to satisfy:
 > **"What happens if two requests hit this service at exactly the same time?"**
 
 See `docs/THREAT_MODEL.md` for what this module defends against and, just as
-importantly, what it does not. See `AUDIT.md`/`ENGINEERING_DECISIONS.md` for how this
+importantly, what it does not. See `docs/ENGINEERING_DECISIONS.md` for how this
 fits into the rest of the repository.
 
 ---
@@ -152,7 +152,7 @@ worst case) are sized with a large safety margin specifically so that no legitim
 scheduling order can trigger an `InsufficientFundsException` — that would make the
 test's *outcome* depend on scheduling, which is exactly the property a non-flaky
 concurrency test must not have. Verified with 30 consecutive fresh-JVM runs during
-development with zero failures (see `AUDIT.md` for the exact commands).
+development with zero failures.
 
 ### 3.5 Deterministic ledger state
 
